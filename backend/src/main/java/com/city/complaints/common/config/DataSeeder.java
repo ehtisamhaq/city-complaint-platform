@@ -2,6 +2,10 @@ package com.city.complaints.common.config;
 
 import com.city.complaints.domain.citizen.entity.Citizen;
 import com.city.complaints.domain.citizen.repository.CitizenRepository;
+import com.city.complaints.domain.complaint.entity.Complaint;
+import com.city.complaints.domain.complaint.entity.ComplaintStatus;
+import com.city.complaints.domain.complaint.entity.Severity;
+import com.city.complaints.domain.complaint.repository.ComplaintRepository;
 import com.city.complaints.domain.department.entity.Department;
 import com.city.complaints.domain.department.repository.DepartmentRepository;
 import com.city.complaints.domain.staff.entity.Staff;
@@ -36,6 +40,7 @@ public class DataSeeder {
     private final CitizenRepository          citizenRepository;
     private final DepartmentRepository       departmentRepository;
     private final StaffRepository            staffRepository;
+    private final ComplaintRepository        complaintRepository;
     private final KnowledgeArticleRepository knowledgeRepository;
     private final PasswordEncoder            passwordEncoder;
 
@@ -150,6 +155,42 @@ public class DataSeeder {
             );
 
             knowledgeRepository.saveAll(articles);
+
+            // ── Demo Complaints ──────────────────────────────────────────
+            Complaint p1 = Complaint.builder()
+                    .title("Deep Asphalt Pothole on Main St")
+                    .description("Sub-surface crater in northbound bike lane causing vehicles to swerve into pedestrian crosswalk.")
+                    .category("ROADS")
+                    .locationName("442 Main St (Westbound Lane)")
+                    .latitude(40.7128)
+                    .longitude(-74.006)
+                    .severity(Severity.CRITICAL)
+                    .severityScore(0.884)
+                    .objectType("ROAD_CAVITY_STRUCTURAL")
+                    .objectMeasurement("4.2 in depth")
+                    .status(ComplaintStatus.IN_PROGRESS)
+                    .citizen(citizen)
+                    .department(roads)
+                    .assignedTo(tech)
+                    .aiSummary("High-risk road depression with potential axle damage on high-frequency transit artery. Rapid cold-mix patch required within 24 hours.")
+                    .build();
+
+            Complaint p2 = Complaint.builder()
+                    .title("Pedestrian Signal Sync Failure")
+                    .description("Signal timing is off at the 8th street transit stop, causing confusion for pedestrians.")
+                    .category("TRAFFIC")
+                    .locationName("Ward 4 • 8th St Transit Stop")
+                    .latitude(40.7135)
+                    .longitude(-74.008)
+                    .severity(Severity.HIGH)
+                    .severityScore(0.75)
+                    .status(ComplaintStatus.ASSIGNED)
+                    .citizen(citizen)
+                    .department(roads)
+                    .aiSummary("Signal timing failure posing risk to pedestrian safety during peak hours.")
+                    .build();
+
+            complaintRepository.saveAll(List.of(p1, p2));
 
             log.info("Demo data & 6 Knowledge Base Articles seeded successfully.");
             log.info("Citizen login:        citizen@demo.com / Password123");
