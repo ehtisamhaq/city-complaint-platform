@@ -60,7 +60,7 @@ public interface ComplaintRepository extends JpaRepository<Complaint, String> {
     List<Object[]> countGroupedByCategory();
 
     @Query("""
-            SELECT d.name, COUNT(c), SUM(CASE WHEN c.status = 'RESOLVED' THEN 1 ELSE 0 END)
+            SELECT d.name, COUNT(c), SUM(CASE WHEN c.status = com.city.complaints.entity.ComplaintStatus.RESOLVED THEN 1L ELSE 0L END)
             FROM Complaint c JOIN c.department d
             GROUP BY d.name
             """)
