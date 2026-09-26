@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
+
 /**
  * Seeds initial demo data on startup (only when profile != "prod").
  *
@@ -24,10 +26,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Slf4j
 public class DataSeeder {
 
-    private final CitizenRepository    citizenRepository;
-    private final DepartmentRepository departmentRepository;
-    private final StaffRepository      staffRepository;
-    private final PasswordEncoder      passwordEncoder;
+    private final CitizenRepository          citizenRepository;
+    private final DepartmentRepository       departmentRepository;
+    private final StaffRepository            staffRepository;
+    private final KnowledgeArticleRepository knowledgeRepository;
+    private final PasswordEncoder            passwordEncoder;
 
     @Bean
     @Profile("!prod & !test")   // Skipped in production and test profiles
@@ -38,7 +41,7 @@ public class DataSeeder {
                 return;
             }
 
-            log.info("Seeding demo data...");
+            log.info("Seeding demo data & municipal knowledge base...");
 
             // ── Departments ────────────────────────────────────────────────
             Department roads = Department.builder()
@@ -99,7 +102,49 @@ public class DataSeeder {
 
             citizenRepository.save(citizen);
 
-            log.info("Demo data seeded successfully.");
+            // ── Municipal Knowledge Base (for RAG) ─────────────────────────
+            List<KnowledgeArticle> articles = List.of(
+                    KnowledgeArticle.builder()
+                            .title("Pothole & Road Damage Resolution SLAs")
+                            .category("Roads & Highways")
+                            .tags("pothole,road,asphalt,crater,traffic,damage,highway")
+                            .content("Pothole reports are assessed by severity: CRITICAL potholes (causing immediate vehicle damage or hazard) are patched within 24 hours. HIGH severity potholes on main avenues are fixed within 48 hours. Standard residential street repairs take 3 to 5 business days. Contact Roads dept at 555-1001.")
+                            .build(),
+                    KnowledgeArticle.builder()
+                            .title("Water Pipeline Leaks & Supply Interruption Protocol")
+                            .category("Water & Sanitation")
+                            .tags("water,leak,pipe,burst,supply,drain,sewage,flood")
+                            .content("Main water pipe bursts and flooding are treated as CRITICAL emergency with on-site technician response within 4 hours. Low water pressure and minor leaks are investigated within 24-48 hours. For water contamination emergencies, call the 24/7 hotline 555-1002.")
+                            .build(),
+                    KnowledgeArticle.builder()
+                            .title("Streetlight Outages & Electrical Safety Guidelines")
+                            .category("Electricity Board")
+                            .tags("electricity,streetlight,dark,power,outage,wire,lamp,pole")
+                            .content("Fallen power lines or exposed sparking wires are CRITICAL hazards — stay at least 30 feet away and call 555-1003 immediately. Street light outages on neighborhood streets are replaced within 3 business days.")
+                            .build(),
+                    KnowledgeArticle.builder()
+                            .title("Municipal Waste Collection & Bulk Trash Schedule")
+                            .category("Sanitation & Waste")
+                            .tags("trash,garbage,waste,recycling,pickup,bin,dumpster")
+                            .content("Residential waste is collected Mondays and Thursdays between 6:00 AM - 11:00 AM. Recycling is collected on Wednesdays. For bulk item disposal (furniture, appliances), schedule a special pickup at least 48 hours in advance.")
+                            .build(),
+                    KnowledgeArticle.builder()
+                            .title("Complaint Escalation & Citizen Review Policy")
+                            .category("General Policy")
+                            .tags("appeal,escalate,review,feedback,rating,complaint,unsatisfied")
+                            .content("If your complaint has not been addressed within the published SLA timeframe or is resolved unsatisfactorily, you can submit feedback with a low rating (1-2 stars) which automatically flags the case for Supervisor review.")
+                            .build(),
+                    KnowledgeArticle.builder()
+                            .title("Emergency Contacts & City Hall Working Hours")
+                            .category("City Hall")
+                            .tags("emergency,hotline,hours,office,contact,phone,city hall")
+                            .content("City Hall offices are open Monday through Friday from 8:30 AM to 5:00 PM. Emergency dispatch for police/fire is 911. City Public Works dispatch is 555-1000. Online complaint filing is available 24/7.")
+                            .build()
+            );
+
+            knowledgeRepository.saveAll(articles);
+
+            log.info("Demo data & 6 Knowledge Base Articles seeded successfully.");
             log.info("Citizen login:        citizen@demo.com / Password123");
             log.info("Staff (Admin) login:  admin@roads.gov  / Password123");
             log.info("Staff (Tech) login:   tech@roads.gov   / Password123");
