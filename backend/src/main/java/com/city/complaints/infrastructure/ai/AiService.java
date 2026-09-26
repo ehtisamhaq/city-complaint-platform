@@ -55,20 +55,25 @@ public class AiService {
                 Respond ONLY with valid JSON (no markdown):
                 {
                   "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
-                  "reason": "Brief reason (max 80 characters)"
+                  "reason": "Brief reason (max 80 characters)",
+                  "score": 0.884,
+                  "objectType": "ROAD_CAVITY_STRUCTURAL",
+                  "objectMeasurement": "4.2 in depth"
                 }
-                """.formatted(category, description);
+                """;
 
         try {
-            String raw = callClaude(prompt);
+            String raw = callClaude(prompt.formatted(category, description));
             return parseJson(raw, SeverityResult.class);
         } catch (Exception e) {
             log.warn("AI severity scoring failed, using default MEDIUM. Reason: {}", e.getMessage());
-            return new SeverityResult("MEDIUM", "AI assessment unavailable");
+            return new SeverityResult("MEDIUM", "AI assessment unavailable", 0.5, "UNKNOWN", "N/A");
         }
     }
 
-    public String generateReplyTemplate(String category, String severity, String description) {
+    public record SeverityResult(String severity, String reason, Double score, String objectType, String objectMeasurement) {}
+
+    public String generateReplyTemplate(String description, String category, String severity) {
         String prompt = """
                 Generate a professional, empathetic reply from a city department to a citizen complaint. Keep it under 100 words.
 
@@ -140,6 +145,4 @@ public class AiService {
             throw new IllegalStateException("Could not parse AI response JSON", e);
         }
     }
-
-    public record SeverityResult(String severity, String reason) {}
 }

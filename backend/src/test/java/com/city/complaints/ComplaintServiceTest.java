@@ -87,7 +87,7 @@ class ComplaintServiceTest {
 
         when(citizenRepository.findByEmail("citizen@demo.com")).thenReturn(Optional.of(mockCitizen));
         when(aiService.scoreComplaintSeverity(anyString(), anyString()))
-                .thenReturn(new AiService.SeverityResult("HIGH", "Hazard to vehicles"));
+                .thenReturn(new AiService.SeverityResult("HIGH", "Hazard to vehicles", 0.85, "ROAD_CAVITY", "3.5 in"));
 
         Complaint savedComplaint = Complaint.builder()
                 .id("complaint-uuid-100")

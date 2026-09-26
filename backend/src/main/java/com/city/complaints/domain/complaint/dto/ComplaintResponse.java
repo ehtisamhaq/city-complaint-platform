@@ -23,6 +23,9 @@ public record ComplaintResponse(
         Double          longitude,
         String          photoUrl,
         Severity        severity,
+        Double          severityScore,
+        String          objectType,
+        String          objectMeasurement,
         String          aiSummary,
         String          suggestedCategory,
         ComplaintStatus status,
@@ -74,7 +77,8 @@ public record ComplaintResponse(
         return new ComplaintResponse(
                 c.getId(), c.getTitle(), c.getDescription(), c.getCategory(),
                 c.getLocationName(), c.getLatitude(), c.getLongitude(), c.getPhotoUrl(),
-                c.getSeverity(), c.getAiSummary(), c.getSuggestedCategory(),
+                c.getSeverity(), c.getSeverityScore(), c.getObjectType(), c.getObjectMeasurement(),
+                c.getAiSummary(), c.getSuggestedCategory(),
                 c.getStatus(), c.getResolutionNotes(), c.getResolvedAt(),
                 c.getCreatedAt(), c.getUpdatedAt(),
                 citizenInfo, assigneeInfo, deptName, history

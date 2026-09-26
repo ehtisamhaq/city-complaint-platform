@@ -67,6 +67,17 @@ public class Complaint {
     @Builder.Default
     private Severity severity = Severity.MEDIUM;
 
+    /** Calculated severity index (0.0 to 1.0). */
+    private Double severityScore;
+
+    /** Detected object type from computer vision. */
+    @Column(length = 100)
+    private String objectType;
+
+    /** Measured dimensions or details (e.g. "4.2 in depth"). */
+    @Column(length = 100)
+    private String objectMeasurement;
+
     @Column(columnDefinition = "TEXT")
     private String aiSummary;
 
