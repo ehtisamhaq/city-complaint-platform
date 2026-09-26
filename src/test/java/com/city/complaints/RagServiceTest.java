@@ -1,18 +1,18 @@
 package com.city.complaints;
 
-import com.city.complaints.dto.request.RagQueryRequest;
-import com.city.complaints.dto.response.RagQueryResponse;
-import com.city.complaints.entity.Citizen;
-import com.city.complaints.entity.Complaint;
-import com.city.complaints.entity.ComplaintStatus;
-import com.city.complaints.entity.KnowledgeArticle;
-import com.city.complaints.entity.Severity;
-import com.city.complaints.repository.CitizenRepository;
-import com.city.complaints.repository.ComplaintRepository;
-import com.city.complaints.repository.DepartmentRepository;
-import com.city.complaints.repository.KnowledgeArticleRepository;
-import com.city.complaints.service.AiService;
-import com.city.complaints.service.RagService;
+import com.city.complaints.domain.citizen.entity.Citizen;
+import com.city.complaints.domain.citizen.repository.CitizenRepository;
+import com.city.complaints.domain.complaint.entity.Complaint;
+import com.city.complaints.domain.complaint.entity.ComplaintStatus;
+import com.city.complaints.domain.complaint.entity.Severity;
+import com.city.complaints.domain.complaint.repository.ComplaintRepository;
+import com.city.complaints.domain.department.repository.DepartmentRepository;
+import com.city.complaints.domain.rag.dto.RagQueryRequest;
+import com.city.complaints.domain.rag.dto.RagQueryResponse;
+import com.city.complaints.domain.rag.entity.KnowledgeArticle;
+import com.city.complaints.domain.rag.repository.KnowledgeArticleRepository;
+import com.city.complaints.domain.rag.service.RagService;
+import com.city.complaints.infrastructure.ai.AiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ class RagServiceTest {
         mockComplaint = Complaint.builder()
                 .id("complaint-100")
                 .title("Pothole on 5th Ave")
-                .status(ComplaintStatus.IN_PROGRESS)
+                .status(ComplaintStatus.PENDING)
                 .severity(Severity.HIGH)
                 .category("Roads & Highways")
                 .citizen(mockCitizen)
@@ -106,12 +106,12 @@ class RagServiceTest {
         when(citizenRepository.findByEmail("citizen@demo.com")).thenReturn(Optional.of(mockCitizen));
         when(complaintRepository.findTop5ByCitizenIdOrderByCreatedAtDesc("citizen-1")).thenReturn(List.of(mockComplaint));
         when(departmentRepository.findAll()).thenReturn(List.of());
-        when(aiService.askClaude(anyString(), anyString())).thenReturn("Your complaint #complaint-100 regarding 'Pothole on 5th Ave' is currently IN_PROGRESS.");
+        when(aiService.askClaude(anyString(), anyString())).thenReturn("Your complaint #complaint-100 regarding 'Pothole on 5th Ave' is currently PENDING.");
 
         RagQueryResponse response = ragService.query(request, "CITIZEN:citizen@demo.com");
 
         assertThat(response).isNotNull();
-        assertThat(response.answer()).contains("IN_PROGRESS");
+        assertThat(response.answer()).contains("PENDING");
         assertThat(response.isComplaintContextIncluded()).isTrue();
         assertThat(response.sources().stream().anyMatch(s -> s.title().contains("Pothole on 5th Ave"))).isTrue();
     }

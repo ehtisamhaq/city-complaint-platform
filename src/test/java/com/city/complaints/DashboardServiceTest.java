@@ -1,11 +1,11 @@
 package com.city.complaints;
 
-import com.city.complaints.dto.response.PublicStatisticsResponse;
-import com.city.complaints.entity.ComplaintStatus;
-import com.city.complaints.repository.CitizenRepository;
-import com.city.complaints.repository.ComplaintRepository;
-import com.city.complaints.repository.StaffRepository;
-import com.city.complaints.service.DashboardService;
+import com.city.complaints.domain.citizen.repository.CitizenRepository;
+import com.city.complaints.domain.complaint.entity.ComplaintStatus;
+import com.city.complaints.domain.complaint.repository.ComplaintRepository;
+import com.city.complaints.domain.dashboard.dto.PublicStatisticsResponse;
+import com.city.complaints.domain.dashboard.service.DashboardService;
+import com.city.complaints.domain.staff.repository.StaffRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
