@@ -118,17 +118,31 @@ public class AiService {
     // ─── Private helpers ──────────────────────────────────────────────────────
 
     /**
+     * Sends a grounded query to Claude with an optional system prompt for RAG.
+     */
+    public String askClaude(String systemPrompt, String userMessage) {
+        return callClaudeWithSystem(systemPrompt, userMessage);
+    }
+
+    /**
      * Sends a message to the Claude Messages API and returns the first text block.
      */
     @SuppressWarnings("unchecked")
     private String callClaude(String userMessage) {
-        Map<String, Object> requestBody = Map.of(
-                "model", model,
-                "max_tokens", maxTokens,
-                "messages", List.of(
-                        Map.of("role", "user", "content", userMessage)
-                )
-        );
+        return callClaudeWithSystem(null, userMessage);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String callClaudeWithSystem(String systemPrompt, String userMessage) {
+        java.util.Map<String, Object> requestBody = new java.util.HashMap<>();
+        requestBody.put("model", model);
+        requestBody.put("max_tokens", Math.max(maxTokens, 600));
+        requestBody.put("messages", List.of(
+                Map.of("role", "user", "content", userMessage)
+        ));
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            requestBody.put("system", systemPrompt);
+        }
 
         Map<String, Object> response = webClient.post()
                 .uri("/v1/messages")
