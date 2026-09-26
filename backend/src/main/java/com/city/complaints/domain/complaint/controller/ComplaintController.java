@@ -12,6 +12,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -46,7 +48,7 @@ public class ComplaintController {
 
     // ─── Read ─────────────────────────────────────────────────────────────────
 
-    /** GET /complaints — paginated list with optional filters. */
+    /** GET /complaints — paginated list with optional filters. Public. */
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ComplaintResponse>>> listComplaints(
             @RequestParam(required = false) String status,
@@ -55,8 +57,8 @@ public class ComplaintController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        Page<ComplaintResponse> data =
-                complaintService.listComplaints(status, severity, category, page, size);
+        Page<ComplaintResponse> data = complaintService.listComplaints(
+                status, severity, category, page, size, isAnonymous());
 
         return ResponseEntity.ok(ApiResponse.ok("Complaints retrieved", data));
     }
@@ -74,11 +76,23 @@ public class ComplaintController {
         return ResponseEntity.ok(ApiResponse.ok("Your complaints retrieved", data));
     }
 
-    /** GET /complaints/:id — single complaint detail with status history. */
+    /** GET /complaints/:id — single complaint detail with status history. Public. */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ComplaintResponse>> getComplaint(@PathVariable String id) {
         return ResponseEntity.ok(ApiResponse.ok("Complaint retrieved",
-                complaintService.getComplaintById(id)));
+                complaintService.getComplaintById(id, isAnonymous())));
+    }
+
+    /**
+     * The two read endpoints above are {@code permitAll}, so an anonymous
+     * request still reaches them. Those callers get a projection without the
+     * complainant's or assignee's email address; staff keep the full view.
+     */
+    private static boolean isAnonymous() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken;
     }
 
     // ─── Update ───────────────────────────────────────────────────────────────

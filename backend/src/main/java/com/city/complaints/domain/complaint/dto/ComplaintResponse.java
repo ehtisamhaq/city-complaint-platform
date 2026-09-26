@@ -52,6 +52,9 @@ public record ComplaintResponse(
 
     // ─── Static factory ───────────────────────────────────────────────────────
 
+    /**
+     * Full projection for authenticated callers. Includes contact details.
+     */
     public static ComplaintResponse from(Complaint c) {
         CitizenInfo citizenInfo = c.getCitizen() == null ? null :
                 new CitizenInfo(c.getCitizen().getId(),
@@ -63,6 +66,29 @@ public record ComplaintResponse(
                         c.getAssignedTo().getFullName(),
                         c.getAssignedTo().getEmail());
 
+        return build(c, citizenInfo, assigneeInfo);
+    }
+
+    /**
+     * Redacted projection for anonymous callers.
+     *
+     * <p>{@code GET /complaints} and {@code GET /complaints/{id}} are reachable
+     * without authentication, so the complainant's and assignee's email
+     * addresses must not be serialised here. Display names are kept because the
+     * public board credits reporters. Because the record is annotated
+     * {@link JsonInclude.Include#NON_NULL}, a null email is simply omitted.
+     */
+    public static ComplaintResponse fromPublic(Complaint c) {
+        CitizenInfo citizenInfo = c.getCitizen() == null ? null :
+                new CitizenInfo(c.getCitizen().getId(), c.getCitizen().getFullName(), null);
+
+        AssigneeInfo assigneeInfo = c.getAssignedTo() == null ? null :
+                new AssigneeInfo(c.getAssignedTo().getId(), c.getAssignedTo().getFullName(), null);
+
+        return build(c, citizenInfo, assigneeInfo);
+    }
+
+    private static ComplaintResponse build(Complaint c, CitizenInfo citizenInfo, AssigneeInfo assigneeInfo) {
         String deptName = c.getDepartment() == null ? null : c.getDepartment().getName();
 
         List<StatusHistoryInfo> history = c.getStatusHistory() == null ? List.of() :

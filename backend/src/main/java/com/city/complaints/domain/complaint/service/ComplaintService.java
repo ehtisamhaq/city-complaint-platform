@@ -95,6 +95,17 @@ public class ComplaintService {
     @Transactional(readOnly = true)
     public Page<ComplaintResponse> listComplaints(
             String status, String severity, String category, int page, int size) {
+        return listComplaints(status, severity, category, page, size, false);
+    }
+
+    /**
+     * @param publicView when true, project through
+     *                   {@link ComplaintResponse#fromPublic} so contact details
+     *                   are withheld from anonymous callers
+     */
+    @Transactional(readOnly = true)
+    public Page<ComplaintResponse> listComplaints(
+            String status, String severity, String category, int page, int size, boolean publicView) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
@@ -103,12 +114,19 @@ public class ComplaintService {
 
         return complaintRepository
                 .findWithFilters(statusEnum, severityEnum, category, pageable)
-                .map(ComplaintResponse::from);
+                .map(publicView ? ComplaintResponse::fromPublic : ComplaintResponse::from);
     }
 
     @Transactional(readOnly = true)
     public ComplaintResponse getComplaintById(String id) {
-        return ComplaintResponse.from(findComplaintById(id));
+        return getComplaintById(id, false);
+    }
+
+    @Transactional(readOnly = true)
+    public ComplaintResponse getComplaintById(String id, boolean publicView) {
+        return publicView
+                ? ComplaintResponse.fromPublic(findComplaintById(id))
+                : ComplaintResponse.from(findComplaintById(id));
     }
 
     @Transactional(readOnly = true)

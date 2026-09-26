@@ -70,17 +70,18 @@ public class SecurityConfig {
                 .requestMatchers("/docs", "/docs/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // Citizen-only endpoints
+                // Authenticated / Role-based complaint endpoints
+                .requestMatchers(HttpMethod.GET, "/complaints/my").authenticated()
                 .requestMatchers(HttpMethod.POST, "/complaints").hasRole("CITIZEN")
-                .requestMatchers("/dashboard/citizen").hasRole("CITIZEN")
-                .requestMatchers("/feedback/**").hasRole("CITIZEN")
-
-                // Staff-only endpoints
                 .requestMatchers(HttpMethod.PATCH, "/complaints/**").hasRole("STAFF")
-                .requestMatchers("/dashboard/staff").hasRole("STAFF")
 
-                // Shared authenticated endpoints
-                .requestMatchers(HttpMethod.GET, "/complaints/**").authenticated()
+                // Public complaint reading (landing page map & recent complaints feed)
+                .requestMatchers(HttpMethod.GET, "/complaints", "/complaints/**").permitAll()
+
+                // Dashboard and feedback
+                .requestMatchers("/dashboard/citizen").hasRole("CITIZEN")
+                .requestMatchers("/dashboard/staff").hasRole("STAFF")
+                .requestMatchers("/feedback/**").hasRole("CITIZEN")
                 .requestMatchers("/dashboard/**").authenticated()
 
                 .anyRequest().authenticated()
