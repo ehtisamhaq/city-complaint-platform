@@ -63,9 +63,10 @@ public class SecurityConfig {
 
             // ── Authorisation rules ───────────────────────────────────────────
             .authorizeHttpRequests(auth -> auth
-                // Public: auth, documentation, and public stats
+                // Public: auth, documentation, public stats, and RAG knowledge assistant
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/public/**").permitAll()
+                .requestMatchers("/rag/**").permitAll()
                 .requestMatchers("/docs", "/docs/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
