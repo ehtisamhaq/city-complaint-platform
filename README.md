@@ -86,6 +86,18 @@ cp .env.example .env
 |--------|-------------------------|---------------------------|
 | POST   | /feedback/{complaintId} | Submit post-resolution feedback |
 
+### RAG & AI Assistant (public / authenticated)
+| Method | Path                    | Description                                  |
+|--------|-------------------------|----------------------------------------------|
+| POST   | /rag/ask                | Ask AI with hybrid knowledge + complaint RAG |
+| GET    | /rag/articles           | Browse municipal knowledge base by category  |
+
+### Interactive API Testing & Documentation
+| Method | Path                    | Description                                  |
+|--------|-------------------------|----------------------------------------------|
+| GET    | /docs                   | **Scalar Interactive API Playground**        |
+| GET    | /v3/api-docs            | OpenAPI 3.0 JSON specification               |
+
 ## Project Structure
 
 ```
