@@ -176,6 +176,7 @@ public class ComplaintService {
 
         Complaint complaint = findComplaintById(id);
         Staff     staff     = staffRepository.findById(request.assignedToId())
+                .or(() -> staffRepository.findByEmail(request.assignedToId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Staff", request.assignedToId()));
 
         complaint.setAssignedTo(staff);
