@@ -1,39 +1,25 @@
-HELP.md
+### macOS ###
+.DS_Store
+
+### Build output ###
 target/
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
 build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+dist/
 
-### VS Code ###
+### Editors ###
+.idea/
 .vscode/
+*.iml
+*.iws
+*.ipr
+.settings/
+.classpath
+.project
+.factorypath
 
 ### Environment ###
 .env
 *.env
+!*.env.example
 application-local.yml
 application-prod.yml
-
-### macOS ###
-.DS_Store
