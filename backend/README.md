@@ -59,15 +59,19 @@ cp .env.example .env
 | POST   | /auth/citizen/login     | Citizen login        |
 | POST   | /auth/staff/login       | Staff login          |
 
-### Complaints (authenticated)
-| Method | Path                       | Description                    |
-|--------|----------------------------|--------------------------------|
-| POST   | /complaints                | Create complaint (AI scoring)  |
-| GET    | /complaints                | List with filters & pagination |
-| GET    | /complaints/my             | Citizen's own complaints       |
-| GET    | /complaints/{id}           | Complaint detail + history     |
-| PATCH  | /complaints/{id}/status    | Update status (+ AI reply)     |
-| PATCH  | /complaints/{id}/assign    | Assign to staff member         |
+### Complaints
+| Method | Path                       | Access   | Description                    |
+|--------|----------------------------|----------|--------------------------------|
+| POST   | /complaints                | CITIZEN  | Create complaint (AI scoring)  |
+| GET    | /complaints                | public   | List with filters & pagination |
+| GET    | /complaints/my             | CITIZEN  | Citizen's own complaints       |
+| GET    | /complaints/{id}           | public   | Complaint detail + history     |
+| PATCH  | /complaints/{id}/status    | STAFF    | Update status (+ AI reply)     |
+| PATCH  | /complaints/{id}/assign    | STAFF    | Assign to staff member         |
+
+Public reads return a redacted projection: the complainant's and assignee's
+email addresses are omitted, display names are kept. Authenticated callers
+receive the full record.
 
 ### Dashboard (authenticated)
 | Method | Path                | Description              |
@@ -80,6 +84,8 @@ cp .env.example .env
 |--------|-----------------------|--------------------------|
 | GET    | /public/statistics    | Platform-wide stats      |
 | GET    | /public/health        | Liveness probe           |
+| GET    | /public/export/json   | Open311 JSON dataset (attachment) |
+| GET    | /public/export/csv    | OpenGov CSV dataset (attachment)  |
 
 ### Feedback (citizen)
 | Method | Path                    | Description               |
@@ -103,32 +109,30 @@ cp .env.example .env
 ```
 src/main/java/com/city/complaints/
 ├── ComplaintPlatformApplication.java
-├── config/
-│   ├── CorsConfig.java
-│   ├── DataSeeder.java       ← demo data on first run
-│   └── SecurityConfig.java
-├── controller/
-│   ├── AuthController.java
-│   ├── ComplaintController.java
-│   ├── DashboardController.java
-│   ├── FeedbackController.java
-│   └── PublicController.java
-├── dto/
-│   ├── request/              ← validated request records
-│   └── response/             ← response records (no entity leakage)
-├── entity/                   ← JPA entities + enums
-├── exception/                ← ApiException hierarchy + GlobalExceptionHandler
-├── repository/               ← Spring Data JPA repositories
-├── security/
-│   ├── CustomUserDetailsService.java
-│   ├── JwtAuthenticationFilter.java
-│   └── JwtProvider.java
-└── service/
-    ├── AiService.java        ← Claude API via WebClient
-    ├── AuthService.java
-    ├── ComplaintService.java
-    └── DashboardService.java
+├── common/
+│   ├── config/                 CorsConfig, SecurityConfig, OpenApiConfig, DataSeeder
+│   ├── exception/              ApiException hierarchy + GlobalExceptionHandler
+│   ├── model/                  ApiResponse<T> envelope
+│   └── security/               CustomUserDetailsService, JwtProvider,
+│                               JwtAuthenticationFilter
+├── domain/
+│   ├── auth/                   AuthController, AuthService, DTOs
+│   ├── citizen/                Citizen entity + repository
+│   ├── complaint/              ComplaintController, ComplaintService, entity,
+│   │                           enums, DTOs, repositories
+│   ├── dashboard/              DashboardController, PublicController, DashboardService
+│   ├── department/             Department entity + repository
+│   ├── feedback/               FeedbackController, entity, repository
+│   ├── rag/                    RagController, RagService, KnowledgeArticle
+│   └── staff/                  Staff entity, StaffRole, repository
+└── infrastructure/
+    ├── ai/                     AiService — Claude API via WebClient
+    └── docs/                   DocsController — Scalar playground
 ```
+
+Sources are grouped by technical role (`common`, `domain`, `infrastructure`) and,
+within each domain, by architectural layer (controller / service / entity /
+repository / dto).
 
 ## Known Decisions & Trade-offs
 
