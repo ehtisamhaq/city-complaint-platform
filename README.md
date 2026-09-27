@@ -82,7 +82,6 @@ accounts, and complaints on first run — credentials are listed in
 
 - [backend/README.md](backend/README.md) — full endpoint reference, env vars, deployment
 - [frontend/README.md](frontend/README.md) — scripts, architecture, env vars
-- [complaint-platform-ai-agent-guide.md](complaint-platform-ai-agent-guide.md) — integrating an AI agent with the complaint API
 
 ## Tech Stack
 
