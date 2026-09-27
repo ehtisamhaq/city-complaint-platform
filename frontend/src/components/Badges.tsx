@@ -1,84 +1,152 @@
 "use client";
 
-import React from "react";
+import type { ComponentProps } from "react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-interface SeverityBadgeProps {
-  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  className?: string;
-}
+type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+type Status = "PENDING" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
-export function SeverityBadge({ severity, className }: SeverityBadgeProps) {
-  const styles = {
-    LOW: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
-    MEDIUM:
-      "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
-    HIGH: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 font-medium",
-    CRITICAL:
-      "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/40 font-semibold animate-pulse",
-  };
+/** Severity is a severity scale, so it maps onto the theme's signal tokens. */
+const severityStyles: Record<
+  Severity,
+  { dot: string; chip: string; label: string }
+> = {
+  LOW: {
+    dot: "bg-success",
+    chip: "border-success/30 bg-success/10 text-success",
+    label: "Low",
+  },
+  MEDIUM: {
+    dot: "bg-chart-1",
+    chip: "border-chart-1/30 bg-chart-1/10 text-chart-1",
+    label: "Medium",
+  },
+  HIGH: {
+    dot: "bg-warning",
+    chip: "border-warning/30 bg-warning/10 text-warning",
+    label: "High",
+  },
+  CRITICAL: {
+    dot: "bg-destructive",
+    chip: "border-destructive/30 bg-destructive/10 text-destructive",
+    label: "Critical",
+  },
+};
+
+export function SeverityBadge({
+  severity,
+  className,
+}: {
+  severity: Severity;
+  className?: string;
+}) {
+  const style = severityStyles[severity] ?? severityStyles.MEDIUM;
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs border tracking-wide shadow-sm",
-        styles[severity] || styles.MEDIUM,
-        className,
-      )}
+    <Badge
+      variant="outline"
+      className={cn("gap-1.5 font-medium", style.chip, className)}
     >
       <span
         className={cn(
-          "w-1.5 h-1.5 rounded-full",
-          severity === "CRITICAL"
-            ? "bg-red-500 animate-ping"
-            : severity === "HIGH"
-              ? "bg-amber-500"
-              : severity === "MEDIUM"
-                ? "bg-blue-500"
-                : "bg-emerald-500",
+          "size-1.5 rounded-full",
+          style.dot,
+          severity === "CRITICAL" && "animate-pulse",
         )}
       />
-      {severity}
-    </span>
+      {style.label}
+    </Badge>
   );
 }
 
-interface StatusBadgeProps {
-  status: "PENDING" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+const statusStyles: Record<
+  Status,
+  { chip: string; label: string; dot: string }
+> = {
+  PENDING: {
+    chip: "border-muted-foreground/25 bg-muted text-muted-foreground",
+    label: "Needs review",
+    dot: "bg-muted-foreground",
+  },
+  ASSIGNED: {
+    chip: "border-accent-foreground/25 bg-accent text-accent-foreground",
+    label: "Assigned",
+    dot: "bg-accent-foreground",
+  },
+  IN_PROGRESS: {
+    chip: "border-primary/25 bg-primary/10 text-primary",
+    label: "In progress",
+    dot: "bg-primary",
+  },
+  RESOLVED: {
+    chip: "border-success/30 bg-success/10 text-success",
+    label: "Resolved",
+    dot: "bg-success",
+  },
+  CLOSED: {
+    chip: "border-border bg-muted text-muted-foreground",
+    label: "Closed",
+    dot: "bg-muted-foreground",
+  },
+};
+
+export function StatusBadge({
+  status,
+  className,
+}: {
+  status: Status;
   className?: string;
-}
-
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const styles = {
-    PENDING:
-      "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30",
-    ASSIGNED:
-      "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
-    IN_PROGRESS:
-      "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30",
-    RESOLVED:
-      "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 font-medium",
-    CLOSED:
-      "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30",
-  };
-
-  const labels = {
-    PENDING: "Pending Triage",
-    ASSIGNED: "Assigned",
-    IN_PROGRESS: "In Progress",
-    RESOLVED: "Resolved",
-    CLOSED: "Closed",
-  };
+}) {
+  const style = statusStyles[status] ?? statusStyles.PENDING;
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-md text-xs border font-medium",
-        styles[status] || styles.PENDING,
-        className,
-      )}
+    <Badge
+      variant="outline"
+      className={cn("font-medium", style.chip, className)}
     >
-      {labels[status] || status}
-    </span>
+      <span className={cn("size-1.5 rounded-full", style.dot)} />
+      {style.label}
+    </Badge>
+  );
+}
+
+/** Shared category vocabulary, so labels stay consistent across screens. */
+export const categoryLabels: Record<string, string> = {
+  ROADS: "Roads & infrastructure",
+  WATER: "Water & sanitation",
+  LIGHTING: "Lighting & power",
+  WASTE: "Sanitation & waste",
+  PARKS: "Parks & trees",
+  TRAFFIC: "Traffic & signals",
+};
+
+export const categoryShortLabels: Record<string, string> = {
+  ROADS: "Roads",
+  WATER: "Water",
+  LIGHTING: "Lighting",
+  WASTE: "Waste",
+  PARKS: "Parks",
+  TRAFFIC: "Traffic",
+};
+
+export function categoryLabel(category?: string | null): string {
+  if (!category) return "Uncategorised";
+  return categoryLabels[category] ?? category;
+}
+
+export function CategoryBadge({
+  category,
+  className,
+  ...props
+}: { category?: string | null } & ComponentProps<typeof Badge>) {
+  return (
+    <Badge
+      variant="secondary"
+      className={cn("font-normal", className)}
+      {...props}
+    >
+      {categoryLabel(category)}
+    </Badge>
   );
 }

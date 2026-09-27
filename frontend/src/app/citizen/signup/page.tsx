@@ -1,21 +1,23 @@
 "use client";
 
 import {
-  AlertCircle,
-  ArrowRight,
-  Loader2,
-  Lock,
-  Mail,
-  MapPin,
-  Phone,
-  User,
-  UserPlus,
-} from "lucide-react";
+  IconAlertCircle,
+  IconLock,
+  IconMail,
+  IconMapPin,
+  IconPhone,
+  IconUser,
+  IconUserPlus,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type React from "react";
 import { useState } from "react";
-import Navbar from "@/components/Navbar";
+import AuthShell from "@/components/AuthShell";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { citizenSignup } from "@/lib/auth";
 
 export default function CitizenSignupPage() {
@@ -30,168 +32,151 @@ export default function CitizenSignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const update = (key: keyof typeof formData) => (value: string) =>
+    setFormData((prev) => ({ ...prev, [key]: value }));
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError(null);
     try {
       await citizenSignup(formData);
       router.push("/citizen/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Signup failed");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The account could not be created",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-      <Navbar />
+    <AuthShell
+      icon={<IconUserPlus className="size-6" />}
+      title="Create your account"
+      description="File service requests and follow every update until the fix is done."
+      footer={
+        <p className="text-center text-sm text-muted-foreground">
+          Already registered?{" "}
+          <Link
+            href="/citizen/login"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Sign in
+          </Link>
+        </p>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error ? (
+          <Alert variant="destructive">
+            <IconAlertCircle className="size-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center shadow-inner">
-              <UserPlus className="w-6 h-6" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Citizen Registration
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Create an account to submit & track city service requests
-            </p>
+        <Field>
+          <FieldLabel htmlFor="fullName">Full name</FieldLabel>
+          <div className="relative">
+            <IconUser className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="fullName"
+              required
+              autoComplete="name"
+              value={formData.fullName}
+              onChange={(event) => update("fullName")(event.target.value)}
+              placeholder="Alex Morgan"
+              className="pl-9"
+            />
           </div>
+        </Field>
 
-          <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-xl space-y-5">
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    required
-                    value={formData.fullName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, fullName: e.target.value })
-                    }
-                    placeholder="Jane Doe"
-                    className="w-full bg-background border border-input rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    placeholder="jane@example.com"
-                    className="w-full bg-background border border-input rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
-                  <input
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    placeholder="At least 6 characters"
-                    className="w-full bg-background border border-input rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Phone (Optional)
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      placeholder="555-0199"
-                      className="w-full bg-background border border-input rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Address (Optional)
-                  </label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
-                      }
-                      placeholder="Ward 4, Main St"
-                      className="w-full bg-background border border-input rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-semibold shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <span>Create Citizen Account</span>
-                )}
-                {!loading && <ArrowRight className="w-4 h-4" />}
-              </button>
-            </form>
-
-            <div className="pt-2 border-t border-border/60 text-center text-xs text-muted-foreground">
-              Already registered?{" "}
-              <Link
-                href="/citizen/login"
-                className="text-indigo-600 font-semibold hover:underline"
-              >
-                Sign In
-              </Link>
-            </div>
+        <Field>
+          <FieldLabel htmlFor="email">Email</FieldLabel>
+          <div className="relative">
+            <IconMail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              value={formData.email}
+              onChange={(event) => update("email")(event.target.value)}
+              placeholder="you@example.com"
+              className="pl-9"
+            />
           </div>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="password">Password</FieldLabel>
+          <div className="relative">
+            <IconLock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={formData.password}
+              onChange={(event) => update("password")(event.target.value)}
+              placeholder="At least 8 characters"
+              className="pl-9"
+            />
+          </div>
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="phone">
+              Phone{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </FieldLabel>
+            <div className="relative">
+              <IconPhone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="phone"
+                type="tel"
+                autoComplete="tel"
+                value={formData.phone}
+                onChange={(event) => update("phone")(event.target.value)}
+                placeholder="+1 555 0100"
+                className="pl-9"
+              />
+            </div>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="address">
+              Address{" "}
+              <span className="font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </FieldLabel>
+            <div className="relative">
+              <IconMapPin className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="address"
+                autoComplete="street-address"
+                value={formData.address}
+                onChange={(event) => update("address")(event.target.value)}
+                placeholder="442 Main Street"
+                className="pl-9"
+              />
+            </div>
+          </Field>
         </div>
-      </div>
-    </div>
+
+        <Button type="submit" className="w-full gap-2" disabled={loading}>
+          {loading ? <Spinner /> : null}
+          Create account
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

@@ -33,7 +33,9 @@ export function proxy(request: NextRequest) {
   }
 
   const isStaff =
-    role === "ADMIN" || role === "TECHNICIAN" || (role && role !== "CITIZEN");
+    role === "ADMIN" ||
+    role === "TECHNICIAN" ||
+    (role !== undefined && role !== "CITIZEN");
 
   // ── 1. Guard /citizen/dashboard ──────────────────────────────────────────
   if (pathname.startsWith("/citizen/dashboard")) {
@@ -43,6 +45,10 @@ export function proxy(request: NextRequest) {
     if (isStaff) {
       return NextResponse.redirect(new URL("/staff/dashboard", request.url));
     }
+    // A token with no readable role cannot be trusted for a citizen session.
+    if (role === undefined) {
+      return NextResponse.redirect(new URL("/citizen/login", request.url));
+    }
   }
 
   // ── 2. Guard /staff/dashboard ─────────────────────────────────────────────
@@ -50,8 +56,9 @@ export function proxy(request: NextRequest) {
     if (!token) {
       return NextResponse.redirect(new URL("/staff/login", request.url));
     }
-    if (role === "CITIZEN") {
-      return NextResponse.redirect(new URL("/citizen/dashboard", request.url));
+    // Fail closed: a token whose role we cannot read is not a staff session.
+    if (!isStaff) {
+      return NextResponse.redirect(new URL("/citizen/login", request.url));
     }
   }
 
@@ -69,8 +76,7 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Next.js convention exports
-export const middleware = proxy;
+// Next.js 16 requires exactly one exported proxy function.
 export default proxy;
 
 export const config = {

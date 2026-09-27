@@ -1,187 +1,196 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { categoryShortLabels } from "@/components/Badges";
 import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AnalyticsChartsProps {
   byCategory: Record<string, number>;
   byDepartment: Array<{ name: string; total: number; resolved: number }>;
 }
 
-const COLORS = [
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#8b5cf6",
-  "#ec4899",
-  "#06b6d4",
-];
+const categoryConfig = {
+  complaints: { label: "Complaints", color: "var(--color-chart-1)" },
+} satisfies ChartConfig;
+
+const departmentConfig = {
+  resolved: { label: "Resolved", color: "var(--color-success)" },
+  open: { label: "Still open", color: "var(--color-muted-foreground)" },
+} satisfies ChartConfig;
 
 export default function AnalyticsCharts({
   byCategory,
   byDepartment,
 }: AnalyticsChartsProps) {
-  const [mounted, setMounted] = useState(false);
+  const categoryData = Object.entries(byCategory ?? {})
+    .map(([name, count]) => ({
+      name: categoryShortLabels[name] ?? name,
+      complaints: count,
+    }))
+    .sort((a, b) => b.complaints - a.complaints);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const categoryData = Object.entries(byCategory || {}).map(
-    ([name, value]) => ({
-      name,
-      count: value,
-    }),
-  );
-
-  const departmentData = (byDepartment || []).map((d) => ({
-    name: d.name,
-    total: d.total,
-    resolved: d.resolved,
-    pending: d.total - d.resolved,
+  const departmentData = (byDepartment ?? []).map((dept) => ({
+    name: dept.name,
+    resolved: dept.resolved,
+    open: Math.max(dept.total - dept.resolved, 0),
   }));
 
-  if (!mounted) {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="p-5 rounded-2xl bg-card border border-border/60 shadow-sm h-[300px] flex items-center justify-center text-xs text-muted-foreground">
-          Loading charts...
-        </div>
-        <div className="p-5 rounded-2xl bg-card border border-border/60 shadow-sm h-[300px] flex items-center justify-center text-xs text-muted-foreground">
-          Loading charts...
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Category Distribution Bar Chart */}
-      <div className="p-5 rounded-2xl bg-card border border-border/60 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold tracking-tight">
-            Complaints by Infrastructure Category
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Volume breakdown across city service domains
-          </p>
-        </div>
-        <div className="h-[240px] w-full min-w-0">
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Complaints by category</CardTitle>
+          <CardDescription>
+            Where residents are reporting issues most often
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           {categoryData.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-              No category data available yet
-            </div>
+            <Empty className="py-10">
+              <EmptyHeader>
+                <EmptyTitle>No category data yet</EmptyTitle>
+                <EmptyDescription>
+                  Charts appear once residents start filing reports.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={0}
+            <ChartContainer
+              config={categoryConfig}
+              className="h-64 w-full"
+              initialDimension={{ width: 480, height: 256 }}
             >
               <BarChart
                 data={categoryData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 20 }}
+                margin={{ top: 8, right: 8, left: -16, bottom: 8 }}
               >
+                <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 11 }}
-                  angle={-15}
-                  textAnchor="end"
-                  interval={0}
-                  stroke="#888888"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
                 />
-                <YAxis tick={{ fontSize: 11 }} stroke="#888888" />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    fontSize: "12px",
-                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-                  }}
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  width={40}
+                  allowDecimals={false}
                 />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                  {categoryData.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Bar>
+                <ChartTooltip
+                  cursor={{ fill: "var(--color-muted)" }}
+                  content={<ChartTooltipContent />}
+                />
+                <Bar
+                  dataKey="complaints"
+                  fill="var(--color-complaints)"
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={64}
+                />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Department Resolution Rate Pie */}
-      <div className="p-5 rounded-2xl bg-card border border-border/60 shadow-sm space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold tracking-tight">
-            Department SLA Resolution
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Resolved vs Pending cases by Department
-          </p>
-        </div>
-        <div className="h-[240px] w-full min-w-0">
+      <Card>
+        <CardHeader>
+          <CardTitle>Department resolution</CardTitle>
+          <CardDescription>Resolved against still-open cases</CardDescription>
+        </CardHeader>
+        <CardContent>
           {departmentData.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-              No department resolution data available yet
-            </div>
+            <Empty className="py-10">
+              <EmptyHeader>
+                <EmptyTitle>No department data yet</EmptyTitle>
+                <EmptyDescription>
+                  Resolution rates appear once cases are assigned.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-              minWidth={0}
-              minHeight={0}
+            <ChartContainer
+              config={departmentConfig}
+              className="h-64 w-full"
+              initialDimension={{ width: 480, height: 256 }}
             >
-              <PieChart>
-                <Pie
-                  data={departmentData}
-                  dataKey="resolved"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={75}
-                  label={({
-                    name,
-                    percent,
-                  }: {
-                    name?: string;
-                    percent?: number;
-                  }) =>
-                    `${name || "Dept"} (${((percent || 0) * 100).toFixed(0)}%)`
-                  }
-                  labelLine={false}
-                >
-                  {departmentData.map((_, index) => (
-                    <Cell
-                      key={`cell-dept-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                  }}
+              <BarChart
+                data={departmentData}
+                layout="vertical"
+                margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
+              >
+                <CartesianGrid horizontal={false} />
+                <XAxis type="number" tickLine={false} axisLine={false} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tickLine={false}
+                  axisLine={false}
+                  width={112}
                 />
-              </PieChart>
-            </ResponsiveContainer>
+                <ChartTooltip
+                  cursor={{ fill: "var(--color-muted)" }}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar
+                  dataKey="resolved"
+                  stackId="cases"
+                  fill="var(--color-resolved)"
+                  radius={[0, 0, 0, 0]}
+                  maxBarSize={24}
+                />
+                <Bar
+                  dataKey="open"
+                  stackId="cases"
+                  fill="var(--color-open)"
+                  radius={[0, 6, 6, 0]}
+                  maxBarSize={24}
+                />
+              </BarChart>
+            </ChartContainer>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export function AnalyticsChartsSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {[0, 1].map((key) => (
+        <Card key={key}>
+          <CardHeader className="gap-2">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-56" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

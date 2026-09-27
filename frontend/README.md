@@ -44,9 +44,8 @@ bun run format    # biome format --write
 
 | Variable                  | Scope   | Description                                                       |
 |---------------------------|---------|-------------------------------------------------------------------|
-| `NEXT_PUBLIC_API_URL`     | client  | Backend base URL including `/api` (default `http://localhost:8080/api`) |
+| `BACKEND_URL`             | server  | Spring Boot base URL without `/api`, used by the `next.config.ts` rewrite (default `http://localhost:8080`) |
 | `NEXT_PUBLIC_MAPBOX_TOKEN`| client  | Mapbox token; empty falls back to OpenStreetMap tiles             |
-| `BACKEND_URL`             | server  | Spring Boot base URL without `/api`, used by the proxy and the auth route handler |
 
 `.env*` is git-ignored; only `.env.local.example` is tracked.
 
@@ -65,7 +64,6 @@ src/
 │   ├── staff/
 │   │   ├── login             Staff auth
 │   │   └── dashboard         Ops console — triage, assign, status, AI reply
-│   └── api/auth/[...action]/ Catch-all route handler → sets cookies, proxies
 ├── components/               Navbar, MapboxMap, AnalyticsCharts, Badges, RagAssistantModal
 │   └── ui/                   shadcn primitives
 └── lib/
@@ -80,14 +78,25 @@ src/
    `/citizen/dashboard` or `/staff/dashboard` redirect to the matching login
    page, and role mismatches bounce between the two dashboards. Logged-in users
    are redirected away from login and signup.
-2. `/api/auth/*` is handled by a route handler that forwards to Spring Boot and,
-   on success, sets `jwt_token` (`httpOnly`) and `user_info` (readable, display
-   fields only) cookies.
-3. Everything else under `/api/*` is rewritten to `BACKEND_URL` by
-   `next.config.ts`. `src/lib/api/client.ts` attaches the `Authorization`
-   header server-side from the cookie and in the browser from `document.cookie`.
+2. Everything under `/api/*` — including `/api/auth/*` — is rewritten to
+   `BACKEND_URL` by `next.config.ts`. `src/lib/api/client.ts` sends
+   `credentials: "include"` and attaches the `Authorization` header in the
+   browser from the `jwt_token` cookie.
+3. `src/lib/auth.ts` writes `jwt_token` and `user_info` on successful login and
+   clears both on logout.
 
-The token is never stored in `localStorage`, so an XSS payload cannot read it.
+### Auth failure handling
+
+The backend distinguishes the two failure modes: **401** means no valid session,
+**403** means authenticated but the wrong role (`RestAuthenticationEntryPoint` /
+`RestAccessDeniedHandler` in `common/security`). On either status, and only
+while on a protected dashboard route, `handleSessionExpiry` in
+`src/lib/api/client.ts` clears the cookies and redirects to the matching login
+page. A 403 elsewhere — e.g. a staff member posting to the citizen-only
+`POST /complaints` — is surfaced as a normal error and does not sign the user out.
+
+The token lives in a cookie rather than `localStorage`, so it is not attached to
+a manually-triggered `localStorage` read by page scripts.
 
 ## Roles
 

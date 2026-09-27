@@ -36,13 +36,13 @@ a BFF and an auth boundary:
 ```
 Browser ──▶ Next.js (3000)
             ├─ src/proxy.ts        edge guard: requires jwt_token, enforces role
-            ├─ /api/auth/*         route handler: sets httpOnly cookie, then proxies
             └─ /api/*              rewrite ──▶ Spring Boot (8080)
-                                                     └─▶ PostgreSQL / Claude API
+                                             └─▶ PostgreSQL / Claude API
 ```
 
-The JWT is set as an `httpOnly` cookie by the Next.js auth route handler and is
-also accepted from the `Authorization` header, so the backend stays usable
+`src/lib/auth.ts` sets the `jwt_token` and `user_info` cookies after a successful
+login, and `src/lib/api/client.ts` sends `credentials: "include"` plus an
+`Authorization: Bearer` header. The backend accepts either, so it stays usable
 standalone (Swagger, curl, the AI agent guide).
 
 ## Quick Start

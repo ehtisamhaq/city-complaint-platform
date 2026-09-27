@@ -22,7 +22,6 @@ interface ApiClientOptions extends ApiClientRequestOptions {
   body?: unknown;
   isFormData?: boolean;
   /** Internal flag — prevents infinite refresh loops on a retry */
-  isRetry?: boolean;
 }
 
 import type { ApiResponse } from "@/lib/api/types";
@@ -65,6 +64,50 @@ class ApiClient {
     return null;
   }
 
+  /**
+   * Routes that require a live session. A 403 on one of these means the
+   * stored token is expired or rejected, not that the caller lacked a role
+   * for the action, so the session is dropped and re-auth prompted.
+   */
+  private static readonly PROTECTED_PREFIXES = [
+    "/citizen/dashboard",
+    "/staff/dashboard",
+  ];
+
+  /**
+   * Drop the stale session and send the user to the login page that matches
+   * where they were. The backend answers 403 (not 401) for an anonymous
+   * request to a role-protected endpoint, so without this a stale token
+   * strands the user on a permanently broken dashboard.
+   *
+   * Returns true when it handled the recovery.
+   */
+  private handleSessionExpiry(endpoint: string): boolean {
+    if (typeof window === "undefined") return false;
+    if (endpoint.includes("/auth/")) return false;
+
+    const { pathname } = window.location;
+    if (
+      !ApiClient.PROTECTED_PREFIXES.some((prefix) =>
+        pathname.startsWith(prefix),
+      )
+    ) {
+      return false;
+    }
+
+    const loginPath = pathname.startsWith("/staff/")
+      ? "/staff/login"
+      : "/citizen/login";
+    if (pathname.startsWith(loginPath)) return false;
+
+    // Lazy import avoids a cycle: auth.ts imports from @/lib/api.
+    void import("@/lib/auth").then(({ clearAuthCookies }) => {
+      clearAuthCookies();
+      window.location.href = loginPath;
+    });
+    return true;
+  }
+
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     let data: unknown = null;
     let text = "";
@@ -78,7 +121,7 @@ class ApiClient {
       // Failed to parse JSON, data remains null
     }
 
-    // Handle 401 Unauthorized - handled reactively by request() via silentRefresh
+    // Handle 401 Unauthorized - request() clears the session and re-prompts
     if (response.status === 401) {
       const errorMsg = this.extractErrorMessage(data, text);
       throw new ApiError(
@@ -111,35 +154,6 @@ class ApiClient {
    *   'overloaded' — server is temporarily under load, redirect to /overloaded
    *   'expired'    — session is gone, redirect to /login
    */
-  private async silentRefresh(): Promise<
-    "refreshed" | "overloaded" | "expired"
-  > {
-    if (typeof window === "undefined") return "expired";
-    try {
-      const res = await fetch("/api/auth/refresh", {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (res.ok) return "refreshed";
-
-      // 503 means the server is overloaded but the session may still be valid.
-      if (res.status === 503) {
-        try {
-          const data = await res.json();
-          if (data?.retryable) return "overloaded";
-        } catch {
-          // ignore JSON parse errors
-        }
-      }
-
-      return "expired";
-    } catch {
-      // Network error — treat as overloaded so we don't log the user out
-      // when it might just be a momentary connectivity blip.
-      return "overloaded";
-    }
-  }
 
   async request<T = unknown>(
     endpoint: string,
@@ -153,7 +167,6 @@ class ApiClient {
       next,
       cache,
       timeout = DEFAULT_TIMEOUT,
-      isRetry = false,
     } = options;
 
     const url = `${this.baseUrl}${endpoint}`;
@@ -211,35 +224,15 @@ class ApiClient {
     try {
       const response = await fetch(url, fetchOptions);
 
-      // On 401: attempt a silent token refresh then retry once
+      // 401 = no valid session. 403 = authenticated but wrong role. The
+      // backend keeps these distinct (RestAuthenticationEntryPoint /
+      // RestAccessDeniedHandler), so either one means the locally stored
+      // credentials no longer describe this user and must be re-established.
       if (
-        response.status === 401 &&
-        !isRetry &&
-        typeof window !== "undefined"
+        (response.status === 401 || response.status === 403) &&
+        this.handleSessionExpiry(endpoint)
       ) {
         clearTimeout(timeoutId);
-        const refreshResult = await this.silentRefresh();
-
-        if (refreshResult === "refreshed") {
-          // Retry the original request with the fresh cookie
-          return this.request<T>(endpoint, { ...options, isRetry: true });
-        }
-
-        if (refreshResult === "overloaded") {
-          if (window.location.pathname !== "/overloaded") {
-            window.location.href = "/overloaded";
-          }
-          return await this.handleResponse<T>(response);
-        }
-
-        // 'expired' — session is truly gone, redirect to login
-        if (
-          window.location.pathname !== "/citizen/login" &&
-          !endpoint.includes("/auth/")
-        ) {
-          window.location.href = "/citizen/login";
-        }
-
         return await this.handleResponse<T>(response);
       }
 
@@ -333,25 +326,13 @@ class ApiClient {
 
 // ── Base URL resolution ────────────────────────────────────────────────────
 
-const getBaseUrl = () => {
-  if (typeof window !== "undefined") return "";
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (appUrl && appUrl !== "/") return appUrl.replace(/\/$/, "");
-
-  const vercelProductionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  if (vercelProductionUrl) return `https://${vercelProductionUrl}`;
-
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-
-  if (process.env.NODE_ENV === "production") {
-    console.error(
-      "CRITICAL: NEXT_PUBLIC_APP_URL is missing in production runtime configuration!",
-    );
-  }
-
-  return "http://localhost:3000";
-};
+/**
+ * Every data route in this app is a client component, so requests are always
+ * same-origin and proxied to Spring Boot by the rewrite in next.config.ts.
+ * An empty base keeps the URL relative; there is no public app URL to
+ * configure and no SSR path to serve.
+ */
+const getBaseUrl = () => "";
 
 export const api = new ApiClient(getBaseUrl());
 export { ApiClient };

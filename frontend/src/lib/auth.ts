@@ -15,7 +15,7 @@ function setAuthCookies(token: string, user: User) {
   document.cookie = `user_info=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${maxAge}; SameSite=Lax`;
 }
 
-function clearAuthCookies() {
+export function clearAuthCookies() {
   if (typeof document === "undefined") return;
   document.cookie = `jwt_token=; path=/; max-age=0`;
   document.cookie = `user_info=; path=/; max-age=0`;

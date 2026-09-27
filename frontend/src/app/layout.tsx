@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { cn } from "@/lib/utils";
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-heading",
-  weight: ["500", "600", "700", "800"],
-});
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  weight: ["500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -28,15 +29,19 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full antialiased", plusJakarta.variable, inter.variable)}
+      className={`${inter.variable} ${plusJakarta.variable} antialiased`}
+      suppressHydrationWarning
     >
       <head>
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        {/* Applies the stored theme before paint to avoid a flash. */}
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static inline script with no user input
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`,
+          }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-[#fafafa] text-[#09090b] font-sans">
+      <body className="min-h-dvh bg-background font-sans text-foreground">
         {children}
       </body>
     </html>

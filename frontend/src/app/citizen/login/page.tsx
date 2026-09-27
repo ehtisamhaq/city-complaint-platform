@@ -1,19 +1,20 @@
 "use client";
 
 import {
-  AlertCircle,
-  ArrowRight,
-  Loader2,
-  Lock,
-  Mail,
-  Sparkles,
-  UserCheck,
-} from "lucide-react";
+  IconAlertCircle,
+  IconLock,
+  IconMail,
+  IconUser,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type React from "react";
 import { useState } from "react";
-import Navbar from "@/components/Navbar";
+import AuthShell from "@/components/AuthShell";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { citizenLogin } from "@/lib/auth";
 
 export default function CitizenLoginPage() {
@@ -23,125 +24,99 @@ export default function CitizenLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError(null);
     try {
       await citizenLogin(email, password);
       router.push("/citizen/dashboard");
-    } catch (err: unknown) {
+    } catch (caught) {
       setError(
-        err instanceof Error ? err.message : "Invalid email or password",
+        caught instanceof Error ? caught.message : "Invalid email or password",
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDemoFill = () => {
-    setEmail("citizen@demo.com");
-    setPassword("Password123");
-  };
-
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
-      <Navbar />
+    <AuthShell
+      icon={<IconUser className="size-6" />}
+      title="Sign in to your account"
+      description="Track your reports, follow progress, and leave feedback on fixes."
+      footer={
+        <p className="text-center text-sm text-muted-foreground">
+          No account yet?{" "}
+          <Link
+            href="/citizen/signup"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Create one
+          </Link>
+        </p>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error ? (
+          <Alert variant="destructive">
+            <IconAlertCircle className="size-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
 
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 mx-auto flex items-center justify-center shadow-inner">
-              <UserCheck className="w-6 h-6" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Citizen Portal Sign In
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Access your complaint history, file reports & give feedback
-            </p>
+        <Field>
+          <FieldLabel htmlFor="email">Email</FieldLabel>
+          <div className="relative">
+            <IconMail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              className="pl-9"
+            />
           </div>
+        </Field>
 
-          <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-xl space-y-5">
-            {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="citizen@demo.com"
-                    className="w-full bg-background border border-input rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-background border border-input rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <span>Sign In to Citizen Portal</span>
-                )}
-                {!loading && <ArrowRight className="w-4 h-4" />}
-              </button>
-            </form>
-
-            <div className="pt-2 border-t border-border/60 text-center space-y-3">
-              <button
-                type="button"
-                onClick={handleDemoFill}
-                className="w-full py-2 bg-accent/60 hover:bg-accent text-accent-foreground text-xs font-medium rounded-xl border border-border/50 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                <span>Auto-fill Demo Citizen Credentials</span>
-              </button>
-
-              <div className="text-xs text-muted-foreground">
-                Don't have an account?{" "}
-                <Link
-                  href="/citizen/signup"
-                  className="text-blue-600 font-semibold hover:underline"
-                >
-                  Create Account
-                </Link>
-              </div>
-            </div>
+        <Field>
+          <FieldLabel htmlFor="password">Password</FieldLabel>
+          <div className="relative">
+            <IconLock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="••••••••"
+              className="pl-9"
+            />
           </div>
-        </div>
-      </div>
-    </div>
+        </Field>
+
+        <Button type="submit" className="w-full gap-2" disabled={loading}>
+          {loading ? <Spinner /> : null}
+          Sign in
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => {
+            setEmail("citizen@demo.com");
+            setPassword("Password123");
+          }}
+        >
+          Use the demo resident account
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

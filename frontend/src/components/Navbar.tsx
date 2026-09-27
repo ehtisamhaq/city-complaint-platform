@@ -1,181 +1,322 @@
 "use client";
 
+import {
+  IconBuildingCommunity,
+  IconChevronRight,
+  IconLayoutDashboard,
+  IconLogout,
+  IconMapPin,
+  IconMenu2,
+  IconMessage,
+  IconMoon,
+  IconSearch,
+  IconSparkles,
+  IconSun,
+  IconUser,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import RagAssistantModal from "@/components/RagAssistantModal";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import type { User } from "@/lib/api";
 import { getClientUser, logout } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { label: "Overview", path: "/", icon: IconMapPin },
+  { label: "Report an issue", path: "/report", icon: IconSparkles },
+  {
+    label: "My requests",
+    path: "/citizen/dashboard",
+    icon: IconLayoutDashboard,
+  },
+  {
+    label: "Ops console",
+    path: "/staff/dashboard",
+    icon: IconBuildingCommunity,
+  },
+  { label: "City metrics", path: "/rag", icon: IconMessage },
+];
+
+function useTheme() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains("dark"));
+  }, []);
+
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
+
+  return { dark, toggle };
+}
 
 export default function Navbar() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
-  const [isRagOpen, setIsRagOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [ragOpen, setRagOpen] = useState(false);
+  const { dark, toggle } = useTheme();
 
   useEffect(() => {
     setUser(getClientUser());
   }, []);
 
-  const navItems = [
-    { label: "Overview", path: "/" },
-    { label: "Report Hazard (AI)", path: "/report" },
-    { label: "Track Requests", path: "/citizen/dashboard" },
-    { label: "Ops Command", path: "/staff/dashboard" },
-    { label: "City Metrics", path: "/rag" },
-  ];
-
-  const isActive = (path: string) => {
-    if (path === "/") return pathname === "/";
-    return pathname.startsWith(path);
-  };
+  const isActive = (path: string) =>
+    path === "/" ? pathname === "/" : pathname.startsWith(path);
 
   return (
     <>
-      <header className="fixed top-0 w-full z-50 bg-[#ffffff]/80 backdrop-blur-md border-b border-[#e8e7f1]">
-        <div className="h-14 max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between gap-5">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-7 h-7 rounded-lg bg-[#18181b] flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
-                <span className="material-symbols-outlined text-[18px]">
-                  apartment
-                </span>
-              </div>
-              <span className="font-headline-sm text-headline-sm text-[#18181b] tracking-tight">
-                CivicPulse
-              </span>
-            </Link>
+      <header className="sticky top-0 z-50 w-full border-b bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
+          {/* Brand */}
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <IconBuildingCommunity className="size-4.5" />
+            </span>
+            <span className="font-heading text-base font-bold tracking-tight">
+              CityPulse
+            </span>
+          </Link>
 
-            {/* Desktop Navigation Tabs */}
-            <nav className="hidden lg:flex items-center gap-1">
-              {navItems.map((item) => {
-                const active = isActive(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`px-3 py-1.5 rounded-lg transition-colors font-label-md text-label-md ${
+          {/* Desktop nav */}
+          <nav className="ml-4 hidden items-center gap-1 lg:flex">
+            {navItems.map((item) => {
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  aria-current={active ? "page" : undefined}
+                  className={buttonVariants({
+                    variant: "ghost",
+                    size: "sm",
+                    className: cn(
+                      "font-medium",
                       active
-                        ? "text-[#18181b] bg-[#e8e7f1] font-semibold"
-                        : "text-[#47464b] hover:text-[#1a1b22] hover:bg-[#eeedf7]"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Right Accessories & Profile */}
-          <div className="flex items-center gap-3 flex-1 max-w-sm justify-end">
-            {/* Search Input Bar with ⌘K */}
-            <div
-              onClick={() => setIsRagOpen(true)}
-              className="hidden md:flex items-center w-full max-w-xs px-3 py-1.5 bg-[#ffffff] rounded-lg border border-[#e3e1ec] shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] cursor-pointer hover:border-[#0051d5] transition-all"
-            >
-              <span className="material-symbols-outlined text-[#47464b] text-[16px] mr-2">
-                search
-              </span>
-              <span className="w-full text-[#47464b] font-body-sm text-body-sm truncate">
-                Search issues, locations, or AI...
-              </span>
-              <span className="font-code text-code px-1.5 py-0.5 rounded bg-[#e8e7f1] text-[#47464b]">
-                ⌘K
-              </span>
-            </div>
-
-            {/* System Status Indicator */}
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eeedf7] border border-[#e3e1ec]">
-              <span className="w-2 h-2 rounded-full bg-[#009668] animate-pulse"></span>
-              <span className="font-label-sm text-label-sm text-[#1a1b22] font-medium whitespace-nowrap">
-                All Systems Operational
-              </span>
-            </div>
-
-            {/* Notifications Button */}
-            <button
-              onClick={() => setIsRagOpen(true)}
-              className="p-1.5 text-[#47464b] hover:text-[#1a1b22] hover:bg-[#eeedf7] rounded-lg transition-colors"
-              title="Notifications & AI Assistant"
-              type="button"
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                notifications
-              </span>
-            </button>
-
-            {/* User Profile / Auth Button */}
-            {user ? (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={logout}
-                  title={`Sign out (${user.fullName})`}
-                  className="w-8 h-8 rounded-full bg-[#18181b] text-white flex items-center justify-center font-bold text-xs hover:bg-[#2f3038] transition-colors"
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    ),
+                  })}
                 >
-                  {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
-                </button>
-              </div>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            {/* Assistant trigger, doubles as the search affordance */}
+            <Button
+              variant="outline"
+              onClick={() => setRagOpen(true)}
+              className="hidden h-9 w-56 justify-start gap-2 text-muted-foreground md:flex"
+            >
+              <IconSearch className="size-4" />
+              <span className="flex-1 text-left">Ask the city…</span>
+              <Kbd>⌘K</Kbd>
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setRagOpen(true)}
+              aria-label="Open the municipal assistant"
+              className="md:hidden"
+            >
+              <IconSearch className="size-4" />
+            </Button>
+
+            <Badge
+              variant="outline"
+              className="hidden gap-1.5 border-success/30 bg-success/10 text-success xl:inline-flex"
+            >
+              <span className="size-1.5 animate-pulse rounded-full bg-success" />
+              All systems operational
+            </Badge>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggle}
+              aria-label={
+                dark ? "Switch to light theme" : "Switch to dark theme"
+              }
+            >
+              {dark ? (
+                <IconSun className="size-4" />
+              ) : (
+                <IconMoon className="size-4" />
+              )}
+            </Button>
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Account menu"
+                    />
+                  }
+                >
+                  <Avatar className="size-7">
+                    <AvatarFallback className="bg-primary text-[11px] font-semibold text-primary-foreground">
+                      {user.fullName?.charAt(0).toUpperCase() ?? "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="flex flex-col gap-0.5">
+                      <span className="truncate text-sm font-medium">
+                        {user.fullName}
+                      </span>
+                      <span className="truncate text-xs font-normal text-muted-foreground">
+                        {user.email}
+                      </span>
+                    </DropdownMenuLabel>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      render={<Link href="/citizen/dashboard" />}
+                    >
+                      <IconUser className="size-4" />
+                      My requests
+                    </DropdownMenuItem>
+                    <DropdownMenuItem render={<Link href="/staff/dashboard" />}>
+                      <IconBuildingCommunity className="size-4" />
+                      Ops console
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={logout}>
+                    <IconLogout className="size-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Link
                 href="/citizen/login"
-                className="w-8 h-8 rounded-full bg-[#18181b] flex items-center justify-center text-white hover:bg-[#2f3038] transition-colors"
-                title="Sign In"
+                className={buttonVariants({ size: "sm" })}
               >
-                <span className="material-symbols-outlined text-[18px]">
-                  person
-                </span>
+                Sign in
               </Link>
             )}
 
-            {/* Mobile menu toggle */}
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="lg:hidden p-1.5 text-[#47464b] hover:text-[#1a1b22]"
-            >
-              <span className="material-symbols-outlined text-[24px]">
-                {mobileOpen ? "close" : "menu"}
-              </span>
-            </button>
+            {/* Mobile nav */}
+            <Sheet>
+              <SheetTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Open navigation"
+                    className="lg:hidden"
+                  />
+                }
+              >
+                <IconMenu2 className="size-4" />
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[85vw] max-w-sm p-0">
+                <SheetHeader className="border-b p-4">
+                  <SheetTitle className="text-left">CityPulse</SheetTitle>
+                  <SheetDescription className="text-left">
+                    Municipal complaint and service request platform
+                  </SheetDescription>
+                </SheetHeader>
+                <nav className="flex flex-col gap-1 p-4">
+                  {navItems.map((item) => {
+                    const active = isActive(item.path);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.path}
+                        href={item.path}
+                        aria-current={active ? "page" : undefined}
+                        className={buttonVariants({
+                          variant: "ghost",
+                          className: cn(
+                            "h-auto w-full justify-start gap-3 py-2.5",
+                            active
+                              ? "bg-accent text-accent-foreground"
+                              : "text-muted-foreground",
+                          ),
+                        })}
+                      >
+                        <Icon className="size-4 shrink-0" />
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {active ? (
+                          <IconChevronRight className="size-4 shrink-0" />
+                        ) : null}
+                      </Link>
+                    );
+                  })}
+                  <Separator className="my-2" />
+                  <Button
+                    variant="outline"
+                    onClick={() => setRagOpen(true)}
+                    className="w-full justify-start gap-3"
+                  >
+                    <IconSparkles className="size-4" />
+                    Ask the city assistant
+                  </Button>
+                  <Separator className="my-2" />
+                  {user ? (
+                    <Button
+                      variant="ghost"
+                      onClick={logout}
+                      className="w-full justify-start gap-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <IconLogout className="size-4" />
+                      Sign out
+                    </Button>
+                  ) : (
+                    <Link
+                      href="/citizen/login"
+                      className={buttonVariants({ className: "w-full" })}
+                    >
+                      Sign in
+                    </Link>
+                  )}
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
-
-        {/* Mobile Navigation Drawer */}
-        {mobileOpen && (
-          <div className="lg:hidden border-b border-[#e3e1ec] bg-[#ffffff] px-4 pt-2 pb-4 space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                href={item.path}
-                onClick={() => setMobileOpen(false)}
-                className={`block px-3 py-2 rounded-lg font-label-md text-label-md ${
-                  isActive(item.path)
-                    ? "bg-[#e8e7f1] text-[#18181b] font-semibold"
-                    : "text-[#47464b] hover:bg-[#eeedf7]"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <button
-              onClick={() => {
-                setMobileOpen(false);
-                setIsRagOpen(true);
-              }}
-              className="w-full text-left px-3 py-2 font-label-md text-label-md text-[#0051d5] bg-[#dbe1ff] rounded-lg"
-            >
-              ✨ Ask City AI Assistant (⌘K)
-            </button>
-          </div>
-        )}
       </header>
 
-      <RagAssistantModal
-        isOpen={isRagOpen}
-        onClose={() => setIsRagOpen(false)}
-      />
+      <RagAssistantModal isOpen={ragOpen} onClose={() => setRagOpen(false)} />
     </>
   );
 }

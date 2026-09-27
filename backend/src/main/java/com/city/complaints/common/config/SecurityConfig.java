@@ -2,6 +2,8 @@ package com.city.complaints.common.config;
 
 import com.city.complaints.common.security.JwtAuthenticationFilter;
 import com.city.complaints.common.security.CustomUserDetailsService;
+import com.city.complaints.common.security.RestAccessDeniedHandler;
+import com.city.complaints.common.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,6 +34,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter  jwtFilter;
     private final CustomUserDetailsService userDetailsService;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    private final RestAccessDeniedHandler       restAccessDeniedHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -85,6 +89,15 @@ public class SecurityConfig {
                 .requestMatchers("/dashboard/**").authenticated()
 
                 .anyRequest().authenticated()
+            )
+
+            // ── Distinct failure modes ─────────────────────────────────────────
+            // 401 when there is no valid session, 403 when there is a session
+            // but the role is not permitted. Without this split, Spring answers
+            // 403 for both and a client cannot detect an expired token.
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(restAuthenticationEntryPoint)
+                .accessDeniedHandler(restAccessDeniedHandler)
             )
 
             // ── Wire authentication provider ──────────────────────────────────

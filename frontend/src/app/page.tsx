@@ -1,1094 +1,549 @@
 "use client";
 
-import { Download, MapPin, Search, ThumbsUp } from "lucide-react";
+import {
+  IconArrowRight,
+  IconBuildingCommunity,
+  IconChartBar,
+  IconCircleCheck,
+  IconClock,
+  IconMapPin,
+  IconSearch,
+  IconSparkles,
+  IconThumbUp,
+} from "@tabler/icons-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import type React from "react";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import AnalyticsCharts from "@/components/AnalyticsCharts";
-import { SeverityBadge, StatusBadge } from "@/components/Badges";
+import {
+  categoryLabel,
+  categoryShortLabels,
+  SeverityBadge,
+  StatusBadge,
+} from "@/components/Badges";
 import Navbar from "@/components/Navbar";
-import RagAssistantModal from "@/components/RagAssistantModal";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   type Complaint,
   type PublicStatisticsData,
   publicApi,
-  type User,
 } from "@/lib/api";
-import { getClientUser } from "@/lib/auth";
 
-// Dynamic import for Mapbox to avoid SSR window errors
 const MapboxMap = dynamic(() => import("@/components/MapboxMap"), {
   ssr: false,
+  loading: () => <Skeleton className="h-[320px] w-full rounded-lg" />,
 });
 
+const CATEGORIES = ["ROADS", "WATER", "LIGHTING", "WASTE"] as const;
+const SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 export default function PublicBoardPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
   const [statsData, setStatsData] = useState<PublicStatisticsData | null>(null);
-  const [recentComplaints, setRecentComplaints] = useState<Complaint[]>([]);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isRagOpen, setIsRagOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Intent form state
-  const [intentInput, setIntentInput] = useState("");
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analyzedResult, setAnalyzedResult] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("ALL");
+  const [severity, setSeverity] = useState("ALL");
+  const [intent, setIntent] = useState("");
 
-  // Dropzone simulate
-  const [cvAnalyzing, setCvAnalyzing] = useState(false);
-  const [cvStatus, setCvStatus] = useState<string | null>(null);
-
-  // Filters & Search State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("ALL");
-  const [selectedSeverity, setSelectedSeverity] = useState("ALL");
-
-  // Community Endorsements
-  const [endorsements, setEndorsements] = useState<Record<string, number>>({
-    "CP-8610": 54,
-    "CP-8594": 38,
-  });
-  const [endorsedByUser, setEndorsedByUser] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [endorsements, setEndorsements] = useState<Record<string, number>>({});
+  const [endorsed, setEndorsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setUser(getClientUser());
-    async function loadPublicData() {
-      try {
-        const statsRes = await publicApi.getStats();
-        setStatsData(statsRes.data);
-        const complaintsRes = await publicApi.getComplaints({
-          page: 0,
-          size: 30,
-        });
-        const list = complaintsRes.data?.content || [];
-        setRecentComplaints(list);
+    let active = true;
 
-        // Seed initial endorsement counts for real API items
-        const initialCounts: Record<string, number> = {
-          "CP-8610": 54,
-          "CP-8594": 38,
-        };
-        list.forEach((item, index) => {
-          initialCounts[item.id] = ((index * 7 + 3) % 19) + 5;
-        });
-        setEndorsements(initialCounts);
-      } catch (err) {
-        console.error("Failed to fetch public statistics", err);
+    async function load() {
+      try {
+        const [statsRes, complaintsRes] = await Promise.all([
+          publicApi.getStats(),
+          publicApi.getComplaints({ page: 0, size: 30 }),
+        ]);
+        if (!active) return;
+
+        setStatsData(statsRes.data);
+        const list = complaintsRes.data?.content ?? [];
+        setComplaints(list);
+        setEndorsements(
+          Object.fromEntries(
+            list.map((item, index) => [item.id, ((index * 7 + 3) % 19) + 5]),
+          ),
+        );
+      } catch (error) {
+        if (!active) return;
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Could not reach the complaint service",
+        );
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
-    loadPublicData();
+
+    load();
+    return () => {
+      active = false;
+    };
   }, []);
 
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return complaints.filter((item) => {
+      const matchesTerm =
+        !term ||
+        item.title?.toLowerCase().includes(term) ||
+        item.locationName?.toLowerCase().includes(term) ||
+        item.category?.toLowerCase().includes(term);
+      const matchesCategory = category === "ALL" || item.category === category;
+      const matchesSeverity = severity === "ALL" || item.severity === severity;
+      return matchesTerm && matchesCategory && matchesSeverity;
+    });
+  }, [complaints, search, category, severity]);
+
   const toggleEndorse = (id: string) => {
-    setEndorsedByUser((prev) => {
-      const isEndorsed = !!prev[id];
+    setEndorsed((prev) => {
+      const wasEndorsed = Boolean(prev[id]);
       setEndorsements((curr) => ({
         ...curr,
-        [id]: (curr[id] || 0) + (isEndorsed ? -1 : 1),
+        [id]: Math.max((curr[id] ?? 0) + (wasEndorsed ? -1 : 1), 0),
       }));
-      return { ...prev, [id]: !isEndorsed };
+      return { ...prev, [id]: !wasEndorsed };
     });
   };
 
-  const handleAnalyzeHazard = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!intentInput.trim()) return;
-    setAnalyzing(true);
-    setAnalyzedResult(null);
-
-    setTimeout(() => {
-      setAnalyzing(false);
-      setAnalyzedResult(
-        `AI Telemetry Intake: Registered incident "${intentInput}". Geo-coordinate locked to Ward 4. Ticket CP-8942 generated with High Priority scoring.`,
-      );
-    }, 900);
-  };
-
-  const triggerUploadSimulation = () => {
-    setCvAnalyzing(true);
-    setCvStatus(null);
-    setTimeout(() => {
-      setCvAnalyzing(false);
-      setCvStatus(
-        "Analyzed: Grade 2 Road Cavity • Severity Score 8.4/10 • TICKET CP-8940 CREATED",
-      );
-    }, 1100);
-  };
-
-  const filteredComplaints = recentComplaints.filter((item) => {
-    const matchesSearch =
-      !searchQuery ||
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.locationName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCategory =
-      selectedCategory === "ALL" ||
-      item.category.toLowerCase().includes(selectedCategory.toLowerCase());
-
-    const matchesSeverity =
-      selectedSeverity === "ALL" || item.severity === selectedSeverity;
-
-    return matchesSearch && matchesCategory && matchesSeverity;
-  });
+  const markers = useMemo(
+    () =>
+      complaints
+        .filter((item) => item.latitude != null && item.longitude != null)
+        .map((item) => ({
+          id: item.id,
+          latitude: item.latitude as number,
+          longitude: item.longitude as number,
+          title: item.title,
+          category: item.category,
+          severity: item.severity,
+          status: item.status,
+        })),
+    [complaints],
+  );
 
   const stats = statsData?.stats;
+  const resolutionRate =
+    stats && stats.totalComplaints > 0
+      ? Math.round(((stats.resolved ?? 0) / stats.totalComplaints) * 100)
+      : 0;
+
+  const headline = [
+    { label: "Total reports", value: stats?.totalComplaints, icon: IconMapPin },
+    { label: "Needs review", value: stats?.pending, icon: IconClock },
+    { label: "In progress", value: stats?.inProgress, icon: IconSparkles },
+    { label: "Resolved", value: stats?.resolved, icon: IconCircleCheck },
+  ];
 
   return (
-    <div className="bg-surface font-body-md text-on-surface antialiased min-h-screen flex flex-col">
+    <div className="flex min-h-dvh flex-col bg-background">
       <Navbar />
 
-      <main className="w-full pt-14 bg-surface min-h-[calc(100vh-3.5rem)] flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
-          <div className="flex flex-col w-full">
-            {/* Greeting & Municipal Telemetry Summary Bar */}
-            <section className="flex flex-col md:flex-row md:items-end justify-between gap-gutter mb-space-xl">
-              <div>
-                <div className="inline-flex items-center gap-space-xs px-2.5 py-1 rounded-full bg-surface-container-high mb-space-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">
-                    Live Dispatch Stream
-                  </span>
-                </div>
-                <h1 className="font-headline-lg text-headline-lg text-primary tracking-tight">
-                  Good morning, {user?.fullName || "Marcus"}
-                </h1>
-                <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-                  Ward 4 • Central District —{" "}
-                  <span className="font-medium text-on-surface">
-                    3 active local resolutions
-                  </span>{" "}
-                  in progress
-                </p>
-              </div>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        {/* Hero */}
+        <section className="mb-8 grid gap-6 lg:mb-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="max-w-2xl">
+            <Badge variant="outline" className="mb-4 gap-1.5">
+              <span className="size-1.5 animate-pulse rounded-full bg-success" />
+              Live city feed
+            </Badge>
+            <h1 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl lg:text-[2.75rem] lg:leading-[1.1]">
+              Report a problem. Track it to the fix.
+            </h1>
+            <p className="mt-3 text-base text-muted-foreground sm:text-lg">
+              Every service request filed here is tracked from triage to
+              resolution, and published openly as it progresses.
+            </p>
+          </div>
 
-              {/* Micro KPIs Pill Cluster */}
-              <div className="flex flex-wrap items-center gap-space-sm bg-surface-container-lowest p-1.5 rounded-xl shadow-sm border border-border">
-                <div className="flex items-center gap-2 px-space-md py-1.5 rounded-lg bg-surface-container-low">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">
-                    SLA Adherence
-                  </span>
-                  <span className="font-headline-sm text-headline-sm text-primary tabular-nums font-bold">
-                    98.4%
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 px-space-md py-1.5 rounded-lg bg-surface-container-low">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">
-                    Avg Fix Latency
-                  </span>
-                  <span className="font-headline-sm text-headline-sm text-primary tabular-nums font-bold">
-                    24.2h
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 px-space-md py-1.5 rounded-lg bg-surface-container-low">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant">
-                    Active Crews
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-on-tertiary-container animate-pulse"></span>
-                    <span className="font-headline-sm text-headline-sm text-primary tabular-nums font-bold">
-                      18
+          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+            <Link
+              href="/report"
+              className={buttonVariants({ size: "lg", className: "gap-2" })}
+            >
+              Report an issue
+              <IconArrowRight className="size-4" />
+            </Link>
+            <Link
+              href="/citizen/dashboard"
+              className={buttonVariants({
+                size: "lg",
+                variant: "outline",
+                className: "gap-2",
+              })}
+            >
+              Track my requests
+            </Link>
+          </div>
+        </section>
+
+        {/* Headline stats */}
+        <section className="mb-8 grid grid-cols-2 gap-3 lg:mb-12 lg:grid-cols-4 lg:gap-4">
+          {headline.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Card key={item.label} size="sm">
+                <CardContent className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {item.label}
                     </span>
+                    <Icon className="size-4 shrink-0 text-muted-foreground" />
                   </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Hero Intent & Natural Language Intake Bar */}
-            <section className="mb-space-xl">
-              <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-border p-2 md:p-3 transition-all hover:shadow-md">
-                <form
-                  className="flex flex-col sm:flex-row items-center gap-space-sm"
-                  onSubmit={handleAnalyzeHazard}
-                >
-                  <div className="flex items-center flex-1 w-full px-space-md py-2 text-on-surface-variant">
-                    <span
-                      className="material-symbols-outlined text-secondary text-[22px] mr-space-sm"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      auto_awesome
-                    </span>
-                    <input
-                      className="w-full bg-transparent border-0 p-0 text-on-surface placeholder:text-outline font-body-lg text-body-lg focus:outline-none"
-                      value={intentInput}
-                      onChange={(e) => setIntentInput(e.target.value)}
-                      placeholder="Describe a city hazard or drop an address (e.g. Deep pothole on Elm & 4th Ave)..."
-                      type="text"
-                    />
-                  </div>
-                  <div className="flex items-center gap-space-xs w-full sm:w-auto justify-end">
-                    <button
-                      className="p-2.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-xl transition-colors"
-                      title="Use current geolocation"
-                      type="button"
-                      onClick={() =>
-                        setIntentInput(
-                          "Deep pothole at Main St & 5th Ave (GPS Detected)",
-                        )
-                      }
-                    >
-                      <span className="material-symbols-outlined text-[20px]">
-                        near_me
-                      </span>
-                    </button>
-                    <Link
-                      href={
-                        intentInput
-                          ? `/report?description=${encodeURIComponent(intentInput)}`
-                          : "/report"
-                      }
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-space-sm px-space-lg py-2.5 bg-primary hover:bg-inverse-surface text-on-primary font-label-md text-label-md rounded-xl transition-all shadow-sm active:scale-[0.98]"
-                    >
-                      <span>Analyze with AI</span>
-                      <span className="material-symbols-outlined text-[16px]">
-                        arrow_forward
-                      </span>
-                    </Link>
-                  </div>
-                </form>
-
-                {analyzedResult && (
-                  <div className="mt-space-sm p-space-md rounded-xl bg-secondary-fixed text-on-secondary-fixed font-body-sm text-body-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-secondary">
-                      check_circle
-                    </span>
-                    <span>{analyzedResult}</span>
-                  </div>
-                )}
-
-                {/* Subchips / Quick Intent Tag Presets */}
-                <div className="flex flex-wrap items-center gap-space-xs pt-3 mt-2 px-space-sm border-t border-surface-container-low">
-                  <span className="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-1">
-                    Frequent:
-                  </span>
-                  {[
-                    {
-                      label: "Water Leak",
-                      icon: "water_drop",
-                      text: "High-pressure water main fissure on corner",
-                    },
-                    {
-                      label: "Pothole",
-                      icon: "traffic",
-                      text: "Deep street pothole impacting lane traffic",
-                    },
-                    {
-                      label: "Signal Outage",
-                      icon: "cloud_upload",
-                      text: "Flashing un-synced pedestrian signal",
-                    },
-                    {
-                      label: "Illegal Dumping",
-                      icon: "delete",
-                      text: "Bulky illegal waste dumping in public alleyway",
-                    },
-                    {
-                      label: "Tree Hazard",
-                      icon: "nature",
-                      text: "Splintered heavy oak branch leaning over roadway",
-                    },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => setIntentInput(preset.text)}
-                      className="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm transition-colors flex items-center gap-1"
-                    >
-                      <span className="material-symbols-outlined text-[14px] text-secondary">
-                        {preset.icon}
-                      </span>
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Bento Grid Layout: Rapid Hazard Intake & District Performance Telemetry */}
-            <section className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-space-xl">
-              {/* Left Bento Card: Instant Intake Target with Computer Vision Analysis */}
-              <div className="lg:col-span-6 bg-surface-container-lowest rounded-2xl border border-border p-space-lg shadow-sm flex flex-col justify-between relative overflow-hidden group">
-                <div>
-                  <div className="flex items-center justify-between mb-space-md">
-                    <div className="flex items-center gap-space-sm">
-                      <div className="w-8 h-8 rounded-xl bg-surface-container-high flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-[18px]">
-                          photo_camera
-                        </span>
-                      </div>
-                      <div>
-                        <h2 className="font-headline-sm text-headline-sm text-primary tracking-tight">
-                          Instant Visual Intake
-                        </h2>
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">
-                          Autonomous telemetry & computer vision triage
-                        </p>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm text-label-sm font-semibold">
-                      CV Engine v4.2
-                    </span>
-                  </div>
-
-                  {/* Interactive Drag Target Area */}
-                  <div
-                    className="cursor-pointer my-space-md p-space-xl rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col items-center justify-center text-center relative overflow-hidden"
-                    onClick={triggerUploadSimulation}
-                  >
-                    <div className="w-12 h-12 rounded-full bg-surface-container-lowest shadow-sm flex items-center justify-center mb-space-sm text-secondary transition-transform group-hover:scale-105">
-                      <span className="material-symbols-outlined text-[24px]">
-                        cloud_upload
-                      </span>
-                    </div>
-                    <p className="font-headline-sm text-headline-sm text-primary mb-1">
-                      Drop hazard capture or browse file
-                    </p>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant max-w-sm mb-space-md">
-                      Directly extracts GPS coordinates, measures surface
-                      displacement, and blinds private PII before municipal
-                      dispatch.
-                    </p>
-                    <div className="flex flex-wrap items-center justify-center gap-space-xs">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-surface-container-lowest text-on-surface-variant font-code text-code shadow-sm">
-                        <span className="material-symbols-outlined text-[12px] text-on-tertiary-container">
-                          check_circle
-                        </span>{" "}
-                        EXIF Geo-locked
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-surface-container-lowest text-on-surface-variant font-code text-code shadow-sm">
-                        <span className="material-symbols-outlined text-[12px] text-on-tertiary-container">
-                          check_circle
-                        </span>{" "}
-                        Automated Plate/Face Blur
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-surface-container-lowest text-on-surface-variant font-code text-code shadow-sm">
-                        <span className="material-symbols-outlined text-[12px] text-on-tertiary-container">
-                          check_circle
-                        </span>{" "}
-                        &lt;400ms Ingestion
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Pipeline Micro Tracker */}
-                <div className="pt-space-md flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-                  {cvAnalyzing ? (
-                    <span className="flex items-center gap-2 text-secondary font-medium">
-                      <span className="w-3 h-3 border-2 border-secondary border-t-transparent rounded-full animate-spin"></span>
-                      Running Computer Vision Hazard Detection...
-                    </span>
-                  ) : cvStatus ? (
-                    <span className="flex items-center gap-1.5 text-on-tertiary-container font-medium">
-                      <span className="material-symbols-outlined text-[16px]">
-                        check_circle
-                      </span>
-                      {cvStatus}
-                    </span>
+                  {loading ? (
+                    <Skeleton className="h-8 w-16" />
                   ) : (
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                      Ready for capture ingestion
+                    <span className="text-2xl font-bold tabular-nums lg:text-3xl">
+                      {item.value ?? 0}
                     </span>
                   )}
-                  <span className="font-code text-code text-outline">
-                    Supported: RAW, JPG, HEIC, MP4
-                  </span>
-                </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </section>
+
+        {/* Quick intake + resolution summary */}
+        <section className="mb-8 grid gap-4 lg:mb-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <Card>
+            <CardHeader>
+              <CardTitle>Describe the problem</CardTitle>
+              <CardDescription>
+                Start a report in your own words — the intake form triages
+                severity and routes it to the right department.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const description = intent.trim();
+                  router.push(
+                    description
+                      ? `/report?description=${encodeURIComponent(description)}`
+                      : "/report",
+                  );
+                }}
+                className="flex flex-col gap-3 sm:flex-row"
+              >
+                <Input
+                  value={intent}
+                  onChange={(event) => setIntent(event.target.value)}
+                  placeholder="e.g. Deep pothole outside 442 Main Street"
+                  aria-label="Describe the problem"
+                  className="h-10 flex-1"
+                />
+                <Button type="submit" size="lg" className="gap-2 sm:w-auto">
+                  Continue
+                  <IconArrowRight className="size-4" />
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Resolution rate</CardTitle>
+              <CardDescription>All published cases</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {loading ? (
+                <Skeleton className="h-12 w-24" />
+              ) : (
+                <span className="text-3xl font-bold tabular-nums">
+                  {resolutionRate}%
+                </span>
+              )}
+              <div
+                className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-valuenow={resolutionRate}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Resolution rate"
+              >
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-500"
+                  style={{ width: `${resolutionRate}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Map */}
+        <section className="mb-8 lg:mb-12">
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>Reported locations</CardTitle>
+              <CardDescription>
+                {loading
+                  ? "Loading reports…"
+                  : `${markers.length} geotagged ${
+                      markers.length === 1 ? "report" : "reports"
+                    }`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadError ? (
+                <Empty className="py-12">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <IconBuildingCommunity />
+                    </EmptyMedia>
+                    <EmptyTitle>Map unavailable</EmptyTitle>
+                    <EmptyDescription>{loadError}</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <MapboxMap
+                  markers={markers}
+                  interactive={false}
+                  className="h-[280px] w-full overflow-hidden rounded-lg border sm:h-[380px]"
+                />
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Complaint directory */}
+        <section className="mb-8 lg:mb-12">
+          <Card>
+            <CardHeader className="gap-4">
+              <div className="flex flex-col gap-1">
+                <CardTitle>Open case directory</CardTitle>
+                <CardDescription>
+                  Every request published by the city, newest first.
+                </CardDescription>
               </div>
 
-              {/* Right Bento Card: District Performance Telemetry */}
-              <div className="lg:col-span-6 bg-surface-container-lowest rounded-2xl border border-border p-space-lg shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-space-md">
-                    <div className="flex items-center gap-space-sm">
-                      <div className="w-8 h-8 rounded-xl bg-surface-container-high flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-[18px]">
-                          query_stats
-                        </span>
-                      </div>
-                      <div>
-                        <h2 className="font-headline-sm text-headline-sm text-primary tracking-tight">
-                          District Telemetry
-                        </h2>
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">
-                          Real-time public works responsiveness & SLA logs
-                        </p>
-                      </div>
-                    </div>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      Ward 4 • Last 24 Hours
-                    </span>
-                  </div>
-
-                  {/* 2 Highlight Data Panels */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md my-space-md">
-                    {/* Metric 1: SLA Adherence with SVG Sparkline */}
-                    <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-                            24h SLA Adherence
-                          </span>
-                          <div className="font-headline-lg text-headline-lg text-primary tracking-tight mt-1 tabular-nums">
-                            96.8%
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-tertiary-container font-label-sm text-label-sm font-semibold">
-                          +1.8%
-                        </span>
-                      </div>
-                      {/* Hairline Sparkline */}
-                      <div className="mt-4 h-10 w-full overflow-hidden">
-                        <svg
-                          className="w-full h-full text-secondary stroke-current fill-none"
-                          viewBox="0 0 160 40"
-                        >
-                          <path
-                            d="M 0 32 Q 25 28, 45 20 T 90 22 T 130 8 T 160 4"
-                            strokeLinecap="round"
-                            strokeWidth="2"
-                            vectorEffect="non-scaling-stroke"
-                          ></path>
-                          <path
-                            className="fill-secondary/10 stroke-none"
-                            d="M 0 32 Q 25 28, 45 20 T 90 22 T 130 8 T 160 4 L 160 40 L 0 40 Z"
-                          ></path>
-                        </svg>
-                      </div>
-                    </div>
-
-                    {/* Metric 2: Dispatch Latency */}
-                    <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col justify-between">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-                            Dispatch Latency
-                          </span>
-                          <div className="font-headline-lg text-headline-lg text-primary tracking-tight mt-1 tabular-nums">
-                            12.4
-                            <span className="font-body-md text-body-md text-on-surface-variant ml-1 font-normal">
-                              min
-                            </span>
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary font-label-sm text-label-sm font-semibold">
-                          -4.2m target
-                        </span>
-                      </div>
-                      <div className="mt-4">
-                        <div className="flex justify-between font-code text-code text-outline mb-1.5">
-                          <span>Avg Response</span>
-                          <span>Target: 16.0 min</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-secondary rounded-full"
-                            style={{ width: "77%" }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <IconSearch className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search title, location, or category"
+                    aria-label="Search reports"
+                    className="pl-9"
+                  />
                 </div>
-
-                {/* 3-Column Mini Status Footnotes */}
-                <div className="grid grid-cols-3 gap-space-sm pt-space-md bg-surface-container-low/50 rounded-xl p-3 border border-surface-container-high">
-                  <div className="flex flex-col">
-                    <span className="font-headline-sm text-headline-sm text-primary tabular-nums">
-                      42
-                    </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      Active Mobile Crews
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-headline-sm text-headline-sm text-primary tabular-nums">
-                      188
-                    </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      Resolved this Week
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-headline-sm text-headline-sm text-primary flex items-center gap-1 tabular-nums">
-                      4.9{" "}
-                      <span
-                        className="material-symbols-outlined text-secondary text-[16px]"
-                        style={{ fontVariationSettings: "'FILL' 1" }}
-                      >
-                        star
-                      </span>
-                    </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant">
-                      Community Rating
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Tracked Hazards & Open Cases Table/Card Hybrid */}
-            <section className="mb-space-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm mb-space-md">
-                <div>
-                  <h2 className="font-headline-md text-headline-md text-primary tracking-tight">
-                    Your Active Submissions
-                  </h2>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    Municipal tracking numbers, crew status, and estimated
-                    intervention times
-                  </p>
-                </div>
-                <Link
-                  className="inline-flex items-center gap-1 font-label-md text-label-md text-secondary hover:underline transition-colors group"
-                  href="/citizen/dashboard"
+                <NativeSelect
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  aria-label="Filter by category"
+                  className="w-full sm:w-48"
                 >
-                  <span>View Complete History</span>
-                  <span className="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">
-                    arrow_forward
-                  </span>
-                </Link>
+                  <NativeSelectOption value="ALL">
+                    All categories
+                  </NativeSelectOption>
+                  {CATEGORIES.map((value) => (
+                    <NativeSelectOption key={value} value={value}>
+                      {categoryShortLabels[value]}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <NativeSelect
+                  value={severity}
+                  onChange={(event) => setSeverity(event.target.value)}
+                  aria-label="Filter by severity"
+                  className="w-full sm:w-44"
+                >
+                  <NativeSelectOption value="ALL">
+                    All severities
+                  </NativeSelectOption>
+                  {SEVERITIES.map((value) => (
+                    <NativeSelectOption key={value} value={value}>
+                      {value.charAt(0) + value.slice(1).toLowerCase()}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
               </div>
+            </CardHeader>
 
-              <div className="bg-surface-container-lowest rounded-2xl border border-border shadow-sm overflow-hidden divide-y divide-surface-container-high">
-                {/* Active Item 1 */}
-                <div className="p-space-lg hover:bg-surface-container-low/40 transition-colors">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
-                    <div className="flex items-start gap-space-md">
-                      <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shrink-0 text-primary mt-0.5">
-                        <span className="material-symbols-outlined text-[20px]">
-                          construction
-                        </span>
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="font-code text-code font-semibold text-secondary">
-                            #CP-8921
-                          </span>
-                          <span className="w-1 h-1 rounded-full bg-outline"></span>
-                          <h3 className="font-headline-sm text-headline-sm text-primary">
-                            Deep Pothole at Main & 5th Ave
-                          </h3>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-space-md text-on-surface-variant font-body-sm text-body-sm">
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[15px] text-outline">
-                              location_on
-                            </span>{" "}
-                            Ward 4 • Crosswalk corridor
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[15px] text-outline">
-                              group
-                            </span>{" "}
-                            Assigned: Unit #4 Rapid Pavement
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between md:justify-end gap-space-lg">
-                      <div className="flex flex-col md:items-end">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high">
-                          <span className="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
-                          <span className="font-label-sm text-label-sm text-primary font-medium">
-                            Crew On-Site
-                          </span>
-                        </div>
-                        <span className="font-label-sm text-label-sm text-on-surface-variant mt-1.5">
-                          ETA to Completion: 45 min
-                        </span>
-                      </div>
-                      <Link
-                        href="/citizen/dashboard"
-                        className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">
-                          chevron_right
-                        </span>
-                      </Link>
-                    </div>
-                  </div>
-                  {/* Inline Step Progression Meter */}
-                  <div className="mt-space-md pt-space-sm border-t border-surface-container-low">
-                    <div className="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
-                      <span className="text-primary font-medium">
-                        1. Triaged (AI CV)
-                      </span>
-                      <span className="text-primary font-medium">
-                        2. Crew Dispatched
-                      </span>
-                      <span className="text-primary font-medium">
-                        3. Asphalt Infill In Progress
-                      </span>
-                      <span className="text-outline">
-                        4. Public Verification
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all duration-500"
-                        style={{ width: "72%" }}
-                      ></div>
-                    </div>
-                  </div>
+            <CardContent>
+              {loading ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {[0, 1, 2, 3, 4, 5].map((key) => (
+                    <Skeleton key={key} className="h-40 w-full" />
+                  ))}
                 </div>
-
-                {/* Active Item 2 */}
-                <div className="p-space-lg hover:bg-surface-container-low/40 transition-colors">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
-                    <div className="flex items-start gap-space-md">
-                      <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shrink-0 text-primary mt-0.5">
-                        <span className="material-symbols-outlined text-[20px]">
-                          traffic
-                        </span>
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="font-code text-code font-semibold text-secondary">
-                            #CP-8754
-                          </span>
-                          <span className="w-1 h-1 rounded-full bg-outline"></span>
-                          <h3 className="font-headline-sm text-headline-sm text-primary">
-                            Pedestrian Signal Sync Failure
-                          </h3>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-space-md text-on-surface-variant font-body-sm text-body-sm">
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[15px] text-outline">
-                              location_on
-                            </span>{" "}
-                            Ward 4 • 8th St Transit Stop
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[15px] text-outline">
-                              engineering
-                            </span>{" "}
-                            Assigned: Metro Traffic Electrical
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between md:justify-end gap-space-lg">
-                      <div className="flex flex-col md:items-end">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container">
-                          <span className="w-2 h-2 rounded-full bg-outline"></span>
-                          <span className="font-label-sm text-label-sm text-on-surface font-medium">
-                            Scheduled Today
-                          </span>
-                        </div>
-                        <span className="font-label-sm text-label-sm text-on-surface-variant mt-1.5">
-                          Scheduled Window: 3:00 PM
-                        </span>
-                      </div>
-                      <Link
-                        href="/citizen/dashboard"
-                        className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-lg transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">
-                          chevron_right
-                        </span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Community Audit Stream: Verified Municipal Proof of Work */}
-            <section className="mb-space-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm mb-space-md">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-headline-md text-headline-md text-primary tracking-tight">
-                      Community Audit Stream
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-on-tertiary-container font-label-sm text-label-sm font-semibold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[13px]">
-                        verified
-                      </span>{" "}
-                      Proof of Work
-                    </span>
-                  </div>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    Neighbor-verified fixes with timestamped before and after
-                    visual records
+              ) : filtered.length === 0 ? (
+                <Empty className="py-14">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <IconSearch />
+                    </EmptyMedia>
+                    <EmptyTitle>No matching reports</EmptyTitle>
+                    <EmptyDescription>
+                      {complaints.length === 0
+                        ? "No cases have been published yet."
+                        : "Try clearing the filters or searching for something else."}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <>
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    Showing {filtered.length} of {complaints.length} reports
                   </p>
-                </div>
-                <div className="flex items-center gap-space-xs">
-                  <button className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-sm text-label-sm">
-                    Most Recent
-                  </button>
-                  <button className="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm">
-                    Near Ward 4
-                  </button>
-                </div>
-              </div>
-
-              {/* 2-Column Showcase Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
-                {/* Showcase Card 1 */}
-                <div className="bg-surface-container-lowest rounded-2xl border border-border p-space-lg shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-                  <div>
-                    <div className="flex items-center justify-between mb-space-sm">
-                      <span className="font-code text-code text-on-surface-variant">
-                        Ticket #CP-8610 • Fixed 2h ago
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
-                        <span className="material-symbols-outlined text-[14px] text-secondary">
-                          bolt
-                        </span>{" "}
-                        Turnaround: 3h 12m
-                      </span>
-                    </div>
-                    <h3 className="font-headline-sm text-headline-sm text-primary mb-1">
-                      Water Main Pipe Joint Repair
-                    </h3>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px] text-outline">
-                        location_on
-                      </span>{" "}
-                      8th & Oak Blvd • Cross-street hydrant lead
-                    </p>
-
-                    {/* Before / After Photo Comparison Grid */}
-                    <div className="grid grid-cols-2 gap-space-sm mb-space-md">
-                      <div className="flex flex-col gap-1">
-                        <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-surface-container-high">
-                          <img
-                            className="w-full h-full object-cover"
-                            alt="Water leak before repair"
-                            src="https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop&q=80"
-                          />
-                          <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-primary/80 backdrop-blur text-on-primary font-label-sm text-label-sm">
-                            Before
-                          </span>
-                        </div>
-                        <span className="font-code text-code text-outline">
-                          Reported 07:15 AM
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-surface-container-high">
-                          <img
-                            className="w-full h-full object-cover"
-                            alt="Repaved clean asphalt after repair"
-                            src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=600&auto=format&fit=crop&q=80"
-                          />
-                          <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-primary/80 backdrop-blur text-on-primary font-label-sm text-label-sm">
-                            Resolved
-                          </span>
-                        </div>
-                        <span className="font-code text-code text-on-tertiary-container font-medium">
-                          Signed off 10:27 AM
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Footer: Social Proof / Community Endorsement */}
-                  <div className="pt-space-md border-t border-surface-container-low flex items-center justify-between">
-                    <button
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-label-md text-label-md transition-colors ${
-                        endorsedByUser["CP-8610"]
-                          ? "bg-secondary-fixed text-on-secondary-fixed"
-                          : "bg-surface-container-low hover:bg-surface-container text-on-surface"
-                      }`}
-                      onClick={() => toggleEndorse("CP-8610")}
-                      type="button"
-                    >
-                      <span className="material-symbols-outlined text-[16px] text-secondary">
-                        thumb_up
-                      </span>
-                      <span>{endorsements["CP-8610"] || 54} confirmations</span>
-                    </button>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[15px] text-on-tertiary-container">
-                        verified
-                      </span>{" "}
-                      Verified by District Inspector
-                    </span>
-                  </div>
-                </div>
-
-                {/* Showcase Card 2 */}
-                <div className="bg-surface-container-lowest rounded-2xl border border-border p-space-lg shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-                  <div>
-                    <div className="flex items-center justify-between mb-space-sm">
-                      <span className="font-code text-code text-on-surface-variant">
-                        Ticket #CP-8594 • Fixed Yesterday
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
-                        <span className="material-symbols-outlined text-[14px] text-secondary">
-                          bolt
-                        </span>{" "}
-                        Turnaround: 5.5h
-                      </span>
-                    </div>
-                    <h3 className="font-headline-sm text-headline-sm text-primary mb-1">
-                      High-Mast LED Streetlight Replacement
-                    </h3>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px] text-outline">
-                        location_on
-                      </span>{" "}
-                      Pine St & 12th Avenue Pedestrian Corridor
-                    </p>
-
-                    {/* Verified Single Wide Asset */}
-                    <div className="relative rounded-xl overflow-hidden aspect-[8/3] bg-surface-container-high mb-space-md">
-                      <img
-                        className="w-full h-full object-cover"
-                        alt="Illuminated street lamp fixture"
-                        src="https://images.unsplash.com/photo-1509114397022-ed747cca3f65?w=800&auto=format&fit=crop&q=80"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent flex items-end p-space-md">
-                        <div className="flex items-center justify-between w-full text-on-primary">
-                          <span className="font-label-md text-label-md">
-                            New Luminaire #L-409 Activated
-                          </span>
-                          <span className="font-code text-code bg-surface-container-lowest/20 backdrop-blur px-2 py-0.5 rounded text-on-primary">
-                            100% Lumens
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="pt-space-md border-t border-surface-container-low flex items-center justify-between">
-                    <button
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full font-label-md text-label-md transition-colors ${
-                        endorsedByUser["CP-8594"]
-                          ? "bg-secondary-fixed text-on-secondary-fixed"
-                          : "bg-surface-container-low hover:bg-surface-container text-on-surface"
-                      }`}
-                      onClick={() => toggleEndorse("CP-8594")}
-                      type="button"
-                    >
-                      <span className="material-symbols-outlined text-[16px] text-secondary">
-                        thumb_up
-                      </span>
-                      <span>{endorsements["CP-8594"] || 38} confirmations</span>
-                    </button>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[15px] text-on-tertiary-container">
-                        verified
-                      </span>{" "}
-                      Verified by Metro Utilities
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Live Municipal Map & Directory Grid */}
-            <section className="space-y-6 mb-12">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="font-headline-md text-headline-md text-[#18181b] tracking-tight flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-[#0051d5]" />
-                    Live Municipal Geographic Map
-                  </h2>
-                  <p className="font-body-sm text-body-sm text-[#47464b]">
-                    Spatial distribution of active complaints and crew
-                    dispatches
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="font-label-sm text-label-sm text-[#47464b]">
-                    Category:
-                  </span>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="bg-[#ffffff] border border-[#e4e4e7] rounded-xl px-3 py-1.5 font-label-md text-label-md focus:outline-none focus:ring-2 focus:ring-[#0051d5]"
-                  >
-                    <option value="ALL">All Sectors</option>
-                    <option value="Roads">Roads & Infrastructure</option>
-                    <option value="Water">Water & Sanitation</option>
-                    <option value="Electricity">Lighting & Power</option>
-                    <option value="Waste">Sanitation & Waste</option>
-                  </select>
-                </div>
-              </div>
-
-              <MapboxMap
-                interactive={true}
-                zoom={11}
-                markers={filteredComplaints.map((c) => ({
-                  id: c.id,
-                  latitude: c.latitude || 40.7128,
-                  longitude: c.longitude || -74.006,
-                  title: c.title,
-                  category: c.category,
-                  severity: c.severity,
-                  status: c.status,
-                }))}
-                className="h-[400px] w-full rounded-2xl overflow-hidden border border-[#e4e4e7] shadow-sm"
-              />
-
-              {/* Public Complaint Directory & Search Bar */}
-              <div className="space-y-4 pt-4 border-t border-[#e8e7f1]">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="font-headline-sm text-headline-sm text-[#18181b]">
-                      Public Incident Ledger & Open Data Exports
-                    </h3>
-                    <p className="font-body-sm text-body-sm text-[#47464b]">
-                      Open311 compliant live municipal database
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <a
-                      href="/api/public/export/csv"
-                      download="civicpulse-open-data.csv"
-                      className="px-3 py-1.5 rounded-xl border border-[#e4e4e7] bg-[#ffffff] hover:bg-[#f4f2fd] text-[#18181b] font-label-md text-label-md shadow-sm transition-all flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5 text-[#0051d5]" />
-                      <span>Export CSV</span>
-                    </a>
-
-                    <a
-                      href="/api/public/export/json"
-                      download="civicpulse-open-data.json"
-                      className="px-3 py-1.5 rounded-xl border border-[#e4e4e7] bg-[#ffffff] hover:bg-[#f4f2fd] text-[#18181b] font-label-md text-label-md shadow-sm transition-all flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5 text-[#009668]" />
-                      <span>Open311 (JSON)</span>
-                    </a>
-
-                    <div className="relative flex-1 sm:w-64">
-                      <Search className="w-4 h-4 text-[#77767b] absolute left-3 top-2.5" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search ticket title or address..."
-                        className="w-full bg-[#ffffff] border border-[#e4e4e7] rounded-xl pl-9 pr-3 py-1.5 font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-[#0051d5]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {!filteredComplaints.length ? (
-                  <div className="py-12 text-center text-body-sm text-[#77767b] bg-[#ffffff] rounded-2xl border border-[#e4e4e7]">
-                    No public complaints match your filter criteria.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredComplaints.map((item) => {
-                      const count = endorsements[item.id] || 0;
-                      const hasEndorsed = !!endorsedByUser[item.id];
-
+                  <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {filtered.map((item) => {
+                      const count = endorsements[item.id] ?? 0;
+                      const isEndorsed = Boolean(endorsed[item.id]);
                       return (
-                        <div
-                          key={item.id}
-                          className="p-5 rounded-2xl bg-[#ffffff] border border-[#e4e4e7] shadow-sm hover:border-[#0051d5]/40 transition-all space-y-4 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-1">
-                                <h3 className="font-headline-sm text-headline-sm text-[#18181b]">
-                                  {item.title}
-                                </h3>
-                                <p className="font-body-sm text-body-sm text-[#47464b]">
-                                  Category:{" "}
-                                  <span className="font-medium text-[#18181b]">
-                                    {item.category}
-                                  </span>
-                                </p>
-                              </div>
-                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <li key={item.id}>
+                          <Card size="sm" className="flex h-full flex-col">
+                            <CardHeader className="gap-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
                                 <SeverityBadge severity={item.severity} />
                                 <StatusBadge status={item.status} />
                               </div>
-                            </div>
-
-                            <p className="font-body-sm text-body-sm text-[#47464b] line-clamp-2">
-                              {item.description}
-                            </p>
-                          </div>
-
-                          <div className="pt-3 border-t border-[#f4f2fd] flex items-center justify-between gap-2 text-xs">
-                            {item.locationName && (
-                              <div className="flex items-center gap-1 text-[#77767b] font-body-sm text-body-sm truncate">
-                                <MapPin className="w-3.5 h-3.5 text-[#0051d5] shrink-0" />
-                                <span className="truncate">
-                                  {item.locationName}
-                                </span>
+                              <CardTitle className="line-clamp-2 text-sm leading-snug">
+                                {item.title}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="mt-auto flex flex-1 flex-col gap-3">
+                              <p className="line-clamp-3 text-sm text-muted-foreground">
+                                {item.description}
+                              </p>
+                              <div className="mt-auto space-y-1 text-xs text-muted-foreground">
+                                <p className="flex items-center gap-1.5">
+                                  <IconMapPin className="size-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {item.locationName ||
+                                      categoryLabel(item.category)}
+                                  </span>
+                                </p>
+                                <p className="flex items-center gap-1.5">
+                                  <IconClock className="size-3.5 shrink-0" />
+                                  {formatDate(item.createdAt)}
+                                </p>
                               </div>
-                            )}
-
-                            <button
-                              onClick={() => toggleEndorse(item.id)}
-                              className={`px-3 py-1.5 rounded-xl font-label-md text-label-md border transition-all flex items-center gap-1.5 shrink-0 ${
-                                hasEndorsed
-                                  ? "bg-[#0051d5] text-white border-[#0051d5] shadow-sm"
-                                  : "bg-[#f4f2fd] text-[#47464b] border-[#e4e4e7] hover:text-[#18181b]"
-                              }`}
-                            >
-                              <ThumbsUp
-                                className={`w-3.5 h-3.5 ${hasEndorsed ? "fill-current" : ""}`}
-                              />
-                              <span>
-                                {hasEndorsed ? "Endorsed" : "Endorse (+1)"}
-                              </span>
-                              <span className="px-1.5 py-0.5 rounded-md bg-[#ffffff]/30 font-code text-code font-bold">
-                                {count}
-                              </span>
-                            </button>
-                          </div>
-                        </div>
+                              <Button
+                                variant={isEndorsed ? "secondary" : "outline"}
+                                size="sm"
+                                onClick={() => toggleEndorse(item.id)}
+                                aria-pressed={isEndorsed}
+                                className="w-full gap-2"
+                              >
+                                <IconThumbUp className="size-3.5" />
+                                {isEndorsed ? "Endorsed" : "Endorse"}
+                                <span className="tabular-nums text-muted-foreground">
+                                  {count}
+                                </span>
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        </li>
                       );
                     })}
-                  </div>
-                )}
-              </div>
-            </section>
+                  </ul>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </section>
 
-            {/* Department & Category Distribution Charts */}
-            {statsData && (
-              <AnalyticsCharts
-                byCategory={statsData.byCategory}
-                byDepartment={statsData.byDepartment}
-              />
-            )}
+        {/* Analytics */}
+        <section>
+          <div className="mb-4 flex items-center gap-2">
+            <IconChartBar className="size-4 text-muted-foreground" />
+            <h2 className="font-heading text-lg font-semibold">
+              Where the city is spending its time
+            </h2>
           </div>
-        </div>
+          {loading ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {[0, 1].map((key) => (
+                <Skeleton key={key} className="h-80 w-full" />
+              ))}
+            </div>
+          ) : (
+            <AnalyticsCharts
+              byCategory={statsData?.byCategory ?? {}}
+              byDepartment={statsData?.byDepartment ?? []}
+            />
+          )}
+        </section>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full bg-[#ffffff] border-t border-[#e8e7f1]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-[#47464b] font-label-sm text-label-sm">
+      <footer className="border-t bg-muted/30">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div>
-            © 2026 CivicPulse Municipal Intelligence Platform. All rights
-            reserved.
+            <p className="font-heading text-sm font-semibold">CityPulse</p>
+            <p className="text-xs text-muted-foreground">
+              Municipal complaint and service request platform
+            </p>
           </div>
-          <div className="flex items-center gap-6">
-            <a className="hover:text-[#1a1b22] transition-colors" href="#">
-              Data Privacy
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <Link
+              href="/report"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Report an issue
+            </Link>
+            <Link
+              href="/citizen/dashboard"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              My requests
+            </Link>
+            <Link
+              href="/staff/login"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Staff sign in
+            </Link>
+            <a
+              href="/api/public/export/json"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Open data
             </a>
-            <a className="hover:text-[#1a1b22] transition-colors" href="#">
-              Security Policy
-            </a>
-            <a className="hover:text-[#1a1b22] transition-colors" href="#">
-              Open API Reference
-            </a>
-          </div>
+          </nav>
         </div>
       </footer>
-
-      <RagAssistantModal
-        isOpen={isRagOpen}
-        onClose={() => setIsRagOpen(false)}
-      />
     </div>
   );
 }
