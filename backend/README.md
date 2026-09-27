@@ -143,10 +143,72 @@ repository / dto).
 
 ## Deployment (Render)
 
+The repo is a monorepo, so **Root Directory is the setting that decides whether
+the build finds anything.** Render resolves `Dockerfile` relative to the build
+context root, which defaults to the repository root — where this project has no
+Dockerfile. Left at the default, the build dies with
+`failed to read dockerfile: open Dockerfile: no such file or directory`.
+
+### Docker runtime
+
+`backend/Dockerfile` is written context-relative (`COPY pom.xml .`,
+`COPY src ./src`), so it needs no changes — just point Render at the right
+context.
+
+| Setting          | Value                    |
+| ---------------- | ------------------------ |
+| Root Directory   | `backend`                |
+| Dockerfile path  | `./Dockerfile`           |
+| Health Check Path| `/api/public/health`     |
+
+> **Health check needs the `/api` prefix.** `application.yml` sets
+> `server.servlet.context-path: /api`, so `GET /` is a 404. The liveness probe
+> is `PublicController#health` at `/public/health` — full path
+> `/api/public/health`. A bare `/health` makes the deploy report unhealthy after
+> a successful build.
+
+### Native runtime
+
+Switch the service to the Java environment instead of Docker to skip the
+context problem entirely:
+
 ```
-Build command: mvn clean package -DskipTests
-Start command: java -jar target/complaint-platform-1.0.0.jar
-Java version:  17
+Root Directory:  backend
+Build command:   mvn clean package -DskipTests
+Start command:   java -jar target/complaint-platform-1.0.0.jar
+Java version:    17
 ```
 
-Set `SPRING_PROFILES_ACTIVE=prod` to disable the data seeder.
+### Environment variables
+
+Set these on the service regardless of runtime:
+
+| Variable          | Required | Notes                                                        |
+| ----------------- | -------- | ------------------------------------------------------------ |
+| `DATABASE_URL`    | Yes      | Full Neon/Postgres JDBC URL, `?sslmode=require`              |
+| `DB_USERNAME`     | Yes      |                                                              |
+| `DB_PASSWORD`     | Yes      |                                                              |
+| `JWT_SECRET`      | Yes      | ≥ 32 characters; the default is a known placeholder          |
+| `CORS_ORIGINS`    | Yes      | Comma-separated; must include the deployed frontend origin   |
+| `SPRING_PROFILES_ACTIVE` | Recommended | `prod` disables the data seeder                      |
+| `ANTHROPIC_API_KEY` | No     | Omitted → complaints fall back to keyword classification      |
+
+`CORS_ORIGINS` defaults to `http://localhost:3000,http://localhost:5173`, which
+will not match a deployed frontend and the browser will block every call. It
+must be the real origin, e.g. `https://city-complaint-platform.onrender.com`.
+
+### Frontend
+
+The Next.js app is a **separate** Render service, not part of this Dockerfile:
+
+| Setting       | Value                                        |
+| ------------- | -------------------------------------------- |
+| Root Directory| `frontend`                                   |
+| Runtime       | Node                                         |
+| Build command | `bun install --frozen-lockfile && bun run build` |
+| Start command | `bun run start`                              |
+
+Set `BACKEND_URL` on the frontend to this service's origin — `next.config.ts`
+rewrites `/api/:path*` to `${BACKEND_URL}/api/:path*`. Note it is **not**
+`NEXT_PUBLIC_`-prefixed, so it is read at build time and must be set before the
+build step runs, not just at runtime.
