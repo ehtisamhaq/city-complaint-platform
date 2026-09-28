@@ -158,12 +158,12 @@ public class DataSeeder {
 
             // ── Demo Complaints ──────────────────────────────────────────
             Complaint p1 = Complaint.builder()
-                    .title("Deep Asphalt Pothole on Main St")
-                    .description("Sub-surface crater in northbound bike lane causing vehicles to swerve into pedestrian crosswalk.")
+                    .title("Deep Asphalt Pothole on Mirpur Road")
+                    .description("Sub-surface crater in northbound lane near Dhanmondi 27 causing severe traffic slowdown and bike accidents.")
                     .category("ROADS")
-                    .locationName("442 Main St (Westbound Lane)")
-                    .latitude(40.7128)
-                    .longitude(-74.006)
+                    .locationName("Mirpur Road, Dhanmondi 27, Dhaka")
+                    .latitude(23.7534)
+                    .longitude(90.3768)
                     .severity(Severity.CRITICAL)
                     .severityScore(0.884)
                     .objectType("ROAD_CAVITY_STRUCTURAL")
@@ -176,21 +176,52 @@ public class DataSeeder {
                     .build();
 
             Complaint p2 = Complaint.builder()
-                    .title("Pedestrian Signal Sync Failure")
-                    .description("Signal timing is off at the 8th street transit stop, causing confusion for pedestrians.")
+                    .title("Pedestrian Signal Sync Failure at Farmgate")
+                    .description("Traffic signal timing is completely off at the Farmgate transit intersection, creating high pedestrian collision danger.")
                     .category("TRAFFIC")
-                    .locationName("Ward 4 • 8th St Transit Stop")
-                    .latitude(40.7135)
-                    .longitude(-74.008)
+                    .locationName("Farmgate Crossing, Tejgaon, Dhaka")
+                    .latitude(23.7569)
+                    .longitude(90.3892)
                     .severity(Severity.HIGH)
                     .severityScore(0.75)
                     .status(ComplaintStatus.ASSIGNED)
                     .citizen(citizen)
                     .department(roads)
-                    .aiSummary("Signal timing failure posing risk to pedestrian safety during peak hours.")
+                    .aiSummary("Signal timing failure posing risk to pedestrian safety during peak transit hours.")
                     .build();
 
-            complaintRepository.saveAll(List.of(p1, p2));
+            Complaint p3 = Complaint.builder()
+                    .title("Open Drain Hazard & Waterlogging")
+                    .description("Broken storm drain slab causing dangerous sewage overflow across the footpath.")
+                    .category("WATER")
+                    .locationName("Gulshan 1 Circle, Avenue 12, Dhaka")
+                    .latitude(23.7785)
+                    .longitude(90.4172)
+                    .severity(Severity.HIGH)
+                    .severityScore(0.82)
+                    .status(ComplaintStatus.PENDING)
+                    .citizen(citizen)
+                    .department(water)
+                    .aiSummary("Exposed drain cavity with high risk of pedestrian injury and monsoon waterlogging.")
+                    .build();
+
+            Complaint p4 = Complaint.builder()
+                    .title("Streetlight Outage on Road 11")
+                    .description("Four consecutive sodium light fixtures out for 3 nights, leaving pedestrian pathway in complete darkness.")
+                    .category("LIGHTING")
+                    .locationName("Road 11, Banani, Dhaka")
+                    .latitude(23.7937)
+                    .longitude(90.4043)
+                    .severity(Severity.MEDIUM)
+                    .severityScore(0.55)
+                    .status(ComplaintStatus.RESOLVED)
+                    .citizen(citizen)
+                    .department(electricity)
+                    .assignedTo(tech)
+                    .aiSummary("Bulb failure on residential corridor; replaced with high-efficiency LED fixture.")
+                    .build();
+
+            complaintRepository.saveAll(List.of(p1, p2, p3, p4));
 
             log.info("Demo data & 6 Knowledge Base Articles seeded successfully.");
             log.info("Citizen login:        citizen@demo.com / Password123");
