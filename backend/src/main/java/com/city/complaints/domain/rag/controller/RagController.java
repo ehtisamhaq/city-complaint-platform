@@ -49,4 +49,15 @@ public class RagController {
         List<KnowledgeArticle> articles = ragService.listArticles(category);
         return ResponseEntity.ok(ApiResponse.ok("Articles retrieved successfully", articles));
     }
+
+    /**
+     * POST /api/rag/articles — Publish a new knowledge base article or guidance.
+     */
+    @PostMapping("/articles")
+    public ResponseEntity<ApiResponse<KnowledgeArticle>> createArticle(
+            @Valid @RequestBody com.city.complaints.domain.rag.dto.CreateArticleRequest request) {
+
+        KnowledgeArticle article = ragService.createArticle(request);
+        return ResponseEntity.ok(ApiResponse.ok("Knowledge article published successfully", article));
+    }
 }

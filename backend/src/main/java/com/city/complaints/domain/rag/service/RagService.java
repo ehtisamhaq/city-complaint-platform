@@ -111,6 +111,17 @@ public class RagService {
         return knowledgeRepository.findAll();
     }
 
+    @Transactional
+    public KnowledgeArticle createArticle(com.city.complaints.domain.rag.dto.CreateArticleRequest request) {
+        KnowledgeArticle article = KnowledgeArticle.builder()
+                .title(request.title().trim())
+                .category(request.category().trim())
+                .content(request.content().trim())
+                .tags(request.tags() != null ? request.tags().trim() : null)
+                .build();
+        return knowledgeRepository.save(article);
+    }
+
     // ─── Private Retrieval Helpers ────────────────────────────────────────────
 
     private List<KnowledgeArticle> retrieveKnowledgeArticles(String question) {
