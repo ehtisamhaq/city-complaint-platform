@@ -14,7 +14,7 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5          # keep low for free-tier Neon
+      maximum-pool-size: 5 # keep low for free-tier Neon
       connection-timeout: 20000
       idle-timeout: 300000
 
@@ -22,7 +22,7 @@ spring:
     hibernate:
       ddl-auto: update              # auto-creates/updates tables; use 'validate' in prod
     show-sql: false
-    open-in-view: false             # avoids lazy-loading anti-pattern warnings
+    open-in-view: false # avoids lazy-loading anti-pattern warnings
 
 server:
   port: ${PORT:8080}
@@ -34,11 +34,16 @@ logging:
     root: INFO
     com.city.complaints: DEBUG
     org.hibernate.SQL: WARN
+    # Silence the false-positive Spring Security bean initialization warning
+    org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR
 
 # ─── JWT ─────────────────────────────────────────────────────────────────────
+# The default is a placeholder. ProductionConfigValidator refuses to start
+# under the 'prod' profile while this is still set — export JWT_SECRET to a
+# random string of 32+ characters.
 jwt:
   secret: ${JWT_SECRET:change-me-in-production-must-be-at-least-32-characters-long}
-  expiration-ms: ${JWT_EXPIRATION_MS:86400000}  # 24 h
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 h
 
 # ─── Claude AI ───────────────────────────────────────────────────────────────
 anthropic:
