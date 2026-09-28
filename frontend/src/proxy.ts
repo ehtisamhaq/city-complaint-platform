@@ -2,12 +2,13 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 /**
- * Next.js 16 Proxy / Middleware
+ * Next.js Proxy / Middleware
  *
  * Runs on the Edge before a request completes. Handles:
- *  1. Auth-gating  – /citizen/dashboard and /staff/dashboard require a JWT cookie
+ *  1. Auth-gating  – /citizen/dashboard and /staff/dashboard require a valid JWT cookie & role
  *  2. Role-routing – staff routes reject CITIZEN-role users, citizen routes reject staff users
- *  3. Post-auth redirect – logged-in users are bounced away from login/signup pages
+ *  3. Post-auth redirect – validly logged-in users are bounced away from login/signup pages
+ *  4. Loop prevention – clears invalid/orphan tokens if role is undefined.
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -32,6 +33,24 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // Fallback: decode JWT payload if role is missing from cookie
+  if (token && role === undefined) {
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const payloadStr = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+        const payload = JSON.parse(payloadStr) as { sub?: string };
+        if (payload.sub?.startsWith("STAFF:")) {
+          role = "STAFF";
+        } else if (payload.sub?.startsWith("CITIZEN:")) {
+          role = "CITIZEN";
+        }
+      }
+    } catch {
+      /* ignore invalid token format */
+    }
+  }
+
   const isStaff =
     role === "ADMIN" ||
     role === "TECHNICIAN" ||
@@ -39,26 +58,31 @@ export function proxy(request: NextRequest) {
 
   // ── 1. Guard /citizen/dashboard ──────────────────────────────────────────
   if (pathname.startsWith("/citizen/dashboard")) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/citizen/login", request.url));
+    if (!token || role === undefined) {
+      const res = NextResponse.redirect(new URL("/citizen/login", request.url));
+      res.cookies.delete("jwt_token");
+      res.cookies.delete("user_info");
+      return res;
     }
     if (isStaff) {
       return NextResponse.redirect(new URL("/staff/dashboard", request.url));
-    }
-    // A token with no readable role cannot be trusted for a citizen session.
-    if (role === undefined) {
-      return NextResponse.redirect(new URL("/citizen/login", request.url));
     }
   }
 
   // ── 2. Guard /staff/dashboard ─────────────────────────────────────────────
   if (pathname.startsWith("/staff/dashboard")) {
-    if (!token) {
-      return NextResponse.redirect(new URL("/staff/login", request.url));
+    if (!token || role === undefined) {
+      const res = NextResponse.redirect(new URL("/staff/login", request.url));
+      res.cookies.delete("jwt_token");
+      res.cookies.delete("user_info");
+      return res;
     }
-    // Fail closed: a token whose role we cannot read is not a staff session.
+    // Fail closed: if not staff, redirect to citizen login and clear orphan cookies
     if (!isStaff) {
-      return NextResponse.redirect(new URL("/citizen/login", request.url));
+      const res = NextResponse.redirect(new URL("/citizen/login", request.url));
+      res.cookies.delete("jwt_token");
+      res.cookies.delete("user_info");
+      return res;
     }
   }
 
@@ -68,7 +92,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/citizen/signup") ||
     pathname.startsWith("/staff/login");
 
-  if (isAuthPage && token) {
+  if (isAuthPage && token && role !== undefined) {
     const dest = isStaff ? "/staff/dashboard" : "/citizen/dashboard";
     return NextResponse.redirect(new URL(dest, request.url));
   }
@@ -76,13 +100,8 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Next.js 16 requires exactly one exported proxy function.
 export default proxy;
 
 export const config = {
-  /*
-   * Skip: Next.js internals, static assets, API routes, favicon.
-   * Everything else passes through the proxy function above.
-   */
   matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
 };

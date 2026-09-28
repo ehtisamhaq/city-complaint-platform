@@ -41,7 +41,12 @@ export async function citizenLogin(
   const payload = await post("citizen/login", { email, password });
   if (!payload.success) throw new Error(payload.message || "Login failed");
   if (payload.data?.token && payload.data?.user) {
-    setAuthCookies(payload.data.token, payload.data.user);
+    const user: User = {
+      ...payload.data.user,
+      role: payload.data.user.role || "CITIZEN",
+    };
+    setAuthCookies(payload.data.token, user);
+    return user;
   }
   return payload.data.user as User;
 }
@@ -55,7 +60,12 @@ export async function citizenSignup(data: {
   const payload = await post("citizen/signup", data);
   if (!payload.success) throw new Error(payload.message || "Signup failed");
   if (payload.data?.token && payload.data?.user) {
-    setAuthCookies(payload.data.token, payload.data.user);
+    const user: User = {
+      ...payload.data.user,
+      role: payload.data.user.role || "CITIZEN",
+    };
+    setAuthCookies(payload.data.token, user);
+    return user;
   }
   return payload.data.user as User;
 }
