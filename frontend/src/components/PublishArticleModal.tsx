@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { ragApi } from "@/lib/api";
+import { publishKnowledgeArticle } from "@/lib/actions/complaints";
 
 interface PublishArticleModalProps {
   isOpen: boolean;
@@ -58,12 +58,17 @@ export default function PublishArticleModal({
     setError(null);
 
     try {
-      await ragApi.createArticle({
+      const result = await publishKnowledgeArticle({
         title: title.trim(),
         category,
         content: content.trim(),
         tags: tags.trim() || undefined,
       });
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
 
       // Reset form
       setTitle("");
@@ -93,7 +98,8 @@ export default function PublishArticleModal({
             <div>
               <DialogTitle>Publish Guidance / Knowledge Article</DialogTitle>
               <DialogDescription>
-                Add official municipal guidelines, resolution SLAs, or FAQs to ground AI answers.
+                Add official municipal guidelines, resolution SLAs, or FAQs to
+                ground AI answers.
               </DialogDescription>
             </div>
           </div>
@@ -136,7 +142,9 @@ export default function PublishArticleModal({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="art-content">Guidance Content / Guidelines</FieldLabel>
+            <FieldLabel htmlFor="art-content">
+              Guidance Content / Guidelines
+            </FieldLabel>
             <Textarea
               id="art-content"
               value={content}
@@ -150,7 +158,9 @@ export default function PublishArticleModal({
           <Field>
             <FieldLabel htmlFor="art-tags">
               Tags / Search Keywords{" "}
-              <span className="font-normal text-muted-foreground">(optional, comma-separated)</span>
+              <span className="font-normal text-muted-foreground">
+                (optional, comma-separated)
+              </span>
             </FieldLabel>
             <Input
               id="art-tags"

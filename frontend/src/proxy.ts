@@ -2,106 +2,123 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 /**
- * Next.js Proxy / Middleware
+ * Next.js Proxy (Edge)
  *
- * Runs on the Edge before a request completes. Handles:
- *  1. Auth-gating  – /citizen/dashboard and /staff/dashboard require a valid JWT cookie & role
- *  2. Role-routing – staff routes reject CITIZEN-role users, citizen routes reject staff users
- *  3. Post-auth redirect – validly logged-in users are bounced away from login/signup pages
- *  4. Loop prevention – clears invalid/orphan tokens if role is undefined.
+ * Gates the two authenticated areas before a request reaches a page:
+ *
+ *   /citizen/*  →  login, signup, dashboard
+ *   /staff/*    →  login, dashboard
+ *
+ * The public routes (/, /complaints, /rag) are deliberately left out of the
+ * matcher so this never runs on the common path.
+ *
+ * Access is derived from the SIGNED jwt_token, never from `user_info`. The
+ * `user_info` cookie is plain JSON written by client-side script, so anyone can
+ * rewrite `role` in it; treating it as an authz input would let a citizen walk
+ * into the ops console. It is still forwarded for display purposes only (the
+ * ADMIN/TECHNICIAN distinction lives there, not in the token).
+ *
+ * Everything fails closed: a missing, malformed, or expired token is simply
+ * "anonymous", and an anonymous visitor can never reach a dashboard.
  */
-export function proxy(request: NextRequest) {
+
+type AccessClass = "staff" | "citizen" | "anonymous";
+
+const AUTH_COOKIES = ["jwt_token", "user_info"] as const;
+
+/** Decodes a JWT payload. Returns null for anything that is not a JWT. */
+function decodeJwt(token: string): { sub?: string; exp?: number } | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  try {
+    // base64url → base64, then re-pad: atob rejects a truncated final group.
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    return JSON.parse(atob(padded)) as { sub?: string; exp?: number };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Classifies a session from the token alone. The subject is minted by the
+ * backend as "STAFF:<email>" or "CITIZEN:<email>" and covered by the JWT
+ * signature, so this cannot be forged from the browser.
+ */
+function classify(token: string | undefined): AccessClass {
+  if (!token) return "anonymous";
+
+  const claims = decodeJwt(token);
+  if (!claims) return "anonymous";
+
+  // `exp` is in seconds. Treat an expired token as anonymous even though the
+  // cookie is still attached — otherwise the page loads and every request
+  // behind it fails.
+  if (typeof claims.exp === "number" && claims.exp * 1000 <= Date.now()) {
+    return "anonymous";
+  }
+
+  if (claims.sub?.startsWith("STAFF:")) return "staff";
+  if (claims.sub?.startsWith("CITIZEN:")) return "citizen";
+  return "anonymous";
+}
+
+function redirect(request: NextRequest, to: string, clearAuth = false) {
+  const res = NextResponse.redirect(new URL(to, request.url));
+  if (clearAuth) {
+    for (const name of AUTH_COOKIES) {
+      res.cookies.delete(name);
+    }
+  }
+  return res;
+}
+
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
   const token = request.cookies.get("jwt_token")?.value;
-  const userInfoRaw = request.cookies.get("user_info")?.value;
+  const access = classify(token);
 
-  let role: string | undefined;
-  if (userInfoRaw) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(userInfoRaw)) as {
-        role?: string;
-      };
-      role = parsed.role;
-    } catch {
-      try {
-        const parsed = JSON.parse(userInfoRaw) as { role?: string };
-        role = parsed.role;
-      } catch {
-        /* ignore invalid cookie */
-      }
-    }
+  const isStaffArea = pathname.startsWith("/staff");
+  const isCitizenArea = pathname.startsWith("/citizen");
+
+  if (!isStaffArea && !isCitizenArea) {
+    return NextResponse.next();
   }
 
-  // Fallback: decode JWT payload if role is missing from cookie
-  if (token && role === undefined) {
-    try {
-      const parts = token.split(".");
-      if (parts.length === 3) {
-        const payloadStr = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
-        const payload = JSON.parse(payloadStr) as { sub?: string };
-        if (payload.sub?.startsWith("STAFF:")) {
-          role = "STAFF";
-        } else if (payload.sub?.startsWith("CITIZEN:")) {
-          role = "CITIZEN";
-        }
-      }
-    } catch {
-      /* ignore invalid token format */
-    }
+  // The sign-in pages are the one place in each area an anonymous visitor is
+  // allowed to be.
+  const isSignIn = pathname.endsWith("/login") || pathname.endsWith("/signup");
+  const loginPath = isStaffArea ? "/staff/login" : "/citizen/login";
+
+  // Where a signed-in user of this class belongs.
+  const dashboardFor = (cls: AccessClass) =>
+    cls === "staff" ? "/staff/dashboard" : "/citizen/dashboard";
+
+  if (access === "anonymous") {
+    // Sign-in pages stay reachable; anything else bounces to login and drops a
+    // token we could not use, so the next request starts from a clean slate.
+    return isSignIn
+      ? NextResponse.next()
+      : redirect(request, loginPath, Boolean(token));
   }
 
-  const isStaff =
-    role === "ADMIN" ||
-    role === "TECHNICIAN" ||
-    (role !== undefined && role !== "CITIZEN");
-
-  // ── 1. Guard /citizen/dashboard ──────────────────────────────────────────
-  if (pathname.startsWith("/citizen/dashboard")) {
-    if (!token || role === undefined) {
-      const res = NextResponse.redirect(new URL("/citizen/login", request.url));
-      res.cookies.delete("jwt_token");
-      res.cookies.delete("user_info");
-      return res;
-    }
-    if (isStaff) {
-      return NextResponse.redirect(new URL("/staff/dashboard", request.url));
-    }
+  // Already signed in — the login form is not useful to them.
+  if (isSignIn) {
+    return redirect(request, dashboardFor(access));
   }
 
-  // ── 2. Guard /staff/dashboard ─────────────────────────────────────────────
-  if (pathname.startsWith("/staff/dashboard")) {
-    if (!token || role === undefined) {
-      const res = NextResponse.redirect(new URL("/staff/login", request.url));
-      res.cookies.delete("jwt_token");
-      res.cookies.delete("user_info");
-      return res;
-    }
-    // Fail closed: if not staff, redirect to citizen login and clear orphan cookies
-    if (!isStaff) {
-      const res = NextResponse.redirect(new URL("/citizen/login", request.url));
-      res.cookies.delete("jwt_token");
-      res.cookies.delete("user_info");
-      return res;
-    }
+  // Wrong door: a staff member under /citizen/*, or a citizen under /staff/*.
+  if (isStaffArea && access !== "staff") {
+    return redirect(request, dashboardFor(access));
   }
-
-  // ── 3. Bounce authenticated users away from login / signup ────────────────
-  const isAuthPage =
-    pathname.startsWith("/citizen/login") ||
-    pathname.startsWith("/citizen/signup") ||
-    pathname.startsWith("/staff/login");
-
-  if (isAuthPage && token && role !== undefined) {
-    const dest = isStaff ? "/staff/dashboard" : "/citizen/dashboard";
-    return NextResponse.redirect(new URL(dest, request.url));
+  if (isCitizenArea && access !== "citizen") {
+    return redirect(request, dashboardFor(access));
   }
 
   return NextResponse.next();
 }
 
-export default proxy;
-
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
+  matcher: ["/citizen/:path*", "/staff/:path*"],
 };

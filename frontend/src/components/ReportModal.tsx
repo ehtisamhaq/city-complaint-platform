@@ -30,12 +30,12 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { citizenApi, type User } from "@/lib/api";
+import { submitComplaint } from "@/lib/actions/complaints";
+import type { User } from "@/lib/api";
 import { getClientUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +126,7 @@ interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialCategory?: string;
+  initialLocationName?: string;
   onSuccess?: () => void;
 }
 
@@ -133,6 +134,7 @@ export default function ReportModal({
   isOpen,
   onClose,
   initialCategory,
+  initialLocationName,
   onSuccess,
 }: ReportModalProps) {
   const router = useRouter();
@@ -158,8 +160,9 @@ export default function ReportModal({
     if (isOpen) {
       setUser(getClientUser());
       if (initialCategory) setCategory(initialCategory);
+      if (initialLocationName) setLocationName(initialLocationName);
     }
-  }, [isOpen, initialCategory]);
+  }, [isOpen, initialCategory, initialLocationName]);
 
   // Validation before advancing step
   const validateStep0 = () => {
@@ -218,7 +221,7 @@ export default function ReportModal({
     setErrorMsg(null);
 
     try {
-      await citizenApi.createComplaint({
+      const result = await submitComplaint({
         title: title.trim() || description.trim().slice(0, 80),
         description: description.trim(),
         category,
@@ -226,6 +229,12 @@ export default function ReportModal({
         latitude,
         longitude,
       });
+
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        setSubmitting(false);
+        return;
+      }
 
       // Reset and close
       setSubmitting(false);

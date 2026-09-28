@@ -191,6 +191,27 @@ public class ComplaintService {
         return ComplaintResponse.from(complaint);
     }
 
+    // ─── Endorsements ─────────────────────────────────────────────────────────
+
+    /**
+     * Records one "Endorse this fix" for a complaint.
+     *
+     * <p>Public and unauthenticated, matching the public board it feeds. That
+     * means it is a plain counter: the endpoint is idempotent per caller only
+     * in the sense that a client is expected to stop sending after a success.
+     * De-duplication across sessions is deliberately not attempted here, since
+     * that would need an account or a durable visitor identity, and this is a
+     * public board rather than a logged-in surface.
+     */
+    @Transactional
+    public int endorse(String id) {
+        Complaint complaint = findComplaintById(id);
+        complaint.setEndorseCount(complaint.getEndorseCount() + 1);
+        complaintRepository.save(complaint);
+        log.info("Complaint [id={}] endorsed (total={})", id, complaint.getEndorseCount());
+        return complaint.getEndorseCount();
+    }
+
     // ─── Feedback ─────────────────────────────────────────────────────────────
 
     @Transactional

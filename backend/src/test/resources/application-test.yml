@@ -9,11 +9,17 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+  liquibase:
+    # H2 is a throwaway in-memory database built by Hibernate. The changelog
+    # targets PostgreSQL, so Liquibase stays out of the test run entirely.
+    enabled: false
 
-app:
-  jwt:
-    secret: "TestSecretKeyForJwtTokenValidationInUnitTestsMustBeLongEnough1234567890"
-    expiration-ms: 86400000
-  ai:
-    anthropic-api-key: "test-key"
-    model: "claude-3-haiku-20240307"
+# These keys are top-level in application.yml, not nested under `app`. They used
+# to be nested here, which meant every value below was silently ignored and the
+# tests ran against the published placeholder JWT key and an empty API key.
+jwt:
+  secret: "TestSecretKeyForJwtTokenValidationInUnitTestsMustBeLongEnough1234567890"
+  expiration-ms: 86400000
+anthropic:
+  api-key: "test-key"
+  model: "claude-3-haiku-20240307"

@@ -36,6 +36,7 @@ public record ComplaintResponse(
         CitizenInfo     citizen,
         AssigneeInfo    assignedTo,
         String          departmentName,
+        int             endorseCount,
         List<StatusHistoryInfo> statusHistory
 ) {
 
@@ -44,6 +45,7 @@ public record ComplaintResponse(
     public record AssigneeInfo(String id, String fullName, String email) {}
 
     public record StatusHistoryInfo(
+            String          id,
             String          status,
             String          note,
             String          changedBy,
@@ -94,6 +96,7 @@ public record ComplaintResponse(
         List<StatusHistoryInfo> history = c.getStatusHistory() == null ? List.of() :
                 c.getStatusHistory().stream()
                         .map(h -> new StatusHistoryInfo(
+                                h.getId(),
                                 h.getStatus().name(),
                                 h.getNote(),
                                 h.getChangedBy(),
@@ -107,7 +110,7 @@ public record ComplaintResponse(
                 c.getAiSummary(), c.getSuggestedCategory(),
                 c.getStatus(), c.getResolutionNotes(), c.getResolvedAt(),
                 c.getCreatedAt(), c.getUpdatedAt(),
-                citizenInfo, assigneeInfo, deptName, history
+                citizenInfo, assigneeInfo, deptName, c.getEndorseCount(), history
         );
     }
 }

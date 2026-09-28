@@ -8,6 +8,7 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  cacheComponents: true,
 
   // Forward every /api/* call to Spring Boot. The auth-gating half of the
   // request-time routing lives in src/proxy.ts; this is the HTTP forwarding.

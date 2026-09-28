@@ -3,28 +3,62 @@ import type { User } from "@/lib/api";
 /**
  * CLIENT-SIDE AUTH ACTIONS
  *
- * Each function calls the Next.js Route Handler at /api/auth/*
- * which proxies to Spring Boot and sets the httpOnly jwt_token cookie
- * + the readable user_info cookie. No localStorage, no context.
+ * Each function posts to /api/auth/*, which the rewrite in next.config.ts
+ * forwards to Spring Boot. The response carries the JWT; it is stored in
+ * cookies here and cleared on logout. No localStorage, no context.
+ *
+ * The token is readable by script on purpose: `lib/api/client.ts` reads it back
+ * to attach the Authorization header. The trade-off is that an XSS bug can
+ * exfiltrate it. Making it httpOnly means the server has to set it, which
+ * requires a same-origin Route Handler to do the token exchange instead of
+ * this module.
  */
 
+const ONE_DAY_SECONDS = 86400;
+
+/**
+ * `Secure` is applied automatically on https origins and left off on http, so
+ * local development over http still receives the cookie.
+ */
+function cookieFlags(maxAge: number) {
+  const secure =
+    typeof location !== "undefined" && location.protocol === "https:"
+      ? "; Secure"
+      : "";
+  return `path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
+}
+
+// The linter flags every document.cookie write. These are deliberate: the
+// token has to stay script-readable so lib/api/client.ts can build the
+// Authorization header, and the user blob drives the navbar. See the note at
+// the top of this file for the httpOnly trade-off.
+// biome-ignore-start lint/suspicious/noDocumentCookie: token must be readable by the API client
 function setAuthCookies(token: string, user: User) {
   if (typeof document === "undefined") return;
-  const maxAge = 86400; // 24 hours
-  document.cookie = `jwt_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
-  document.cookie = `user_info=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  const flags = cookieFlags(ONE_DAY_SECONDS);
+  document.cookie = `jwt_token=${encodeURIComponent(token)}; ${flags}`;
+  document.cookie = `user_info=${encodeURIComponent(JSON.stringify(user))}; ${flags}`;
 }
 
 export function clearAuthCookies() {
   if (typeof document === "undefined") return;
-  document.cookie = `jwt_token=; path=/; max-age=0`;
-  document.cookie = `user_info=; path=/; max-age=0`;
+  const flags = cookieFlags(0);
+  document.cookie = `jwt_token=; ${flags}`;
+  document.cookie = `user_info=; ${flags}`;
+  // biome-ignore-end lint/suspicious/noDocumentCookie: token must be readable by the API client
 }
 
-async function post(
-  path: string,
-  body?: object,
-): Promise<{ success: boolean; message: string; data: any }> {
+/** Mirrors the backend AuthResponse record. */
+interface AuthEnvelope {
+  success: boolean;
+  message: string;
+  data: {
+    token?: string;
+    user: User;
+  };
+}
+
+async function post(path: string, body?: object): Promise<AuthEnvelope> {
   const res = await fetch(`/api/auth/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -48,7 +82,7 @@ export async function citizenLogin(
     setAuthCookies(payload.data.token, user);
     return user;
   }
-  return payload.data.user as User;
+  return payload.data.user;
 }
 
 export async function citizenSignup(data: {
@@ -67,7 +101,7 @@ export async function citizenSignup(data: {
     setAuthCookies(payload.data.token, user);
     return user;
   }
-  return payload.data.user as User;
+  return payload.data.user;
 }
 
 export async function staffLogin(
@@ -79,17 +113,15 @@ export async function staffLogin(
   if (payload.data?.token && payload.data?.user) {
     setAuthCookies(payload.data.token, payload.data.user);
   }
-  return payload.data.user as User;
+  return payload.data.user;
 }
 
 export async function logout(): Promise<void> {
-  try {
-    await post("logout");
-  } catch {
-    // Ignore backend logout errors if token already invalid
-  }
+  // No server round-trip: the backend is stateless and exposes no
+  // /api/auth/logout route, so a token stays valid until its 24h expiry.
+  // Client-side logout is therefore a cookie clear; hard-navigating lets
+  // proxy.ts re-evaluate cookie state on the next request.
   clearAuthCookies();
-  // Hard-navigate so proxy.ts re-evaluates cookie state on next request
   window.location.href = "/";
 }
 
