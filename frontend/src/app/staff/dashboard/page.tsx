@@ -1,7 +1,6 @@
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import DashboardSkeleton from "@/components/common/DashboardSkeleton";
 import Navbar from "@/components/Navbar";
 import StaffQueue from "@/components/staff/StaffQueue";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -18,6 +17,7 @@ import {
   getStaffMembers,
 } from "@/lib/server/data";
 import { getSession } from "@/lib/server/session";
+import DashboardSkeleton from "@/components/common/DashboardSkeleton";
 
 export const metadata = {
   title: "Operations | CityPulse",
