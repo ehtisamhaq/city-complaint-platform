@@ -19,6 +19,7 @@ export type {
   PublicStatisticsData,
   RagResponseData,
   StaffDashboardData,
+  StaffMember,
   User,
 } from "./types";
 
@@ -35,6 +36,7 @@ import type {
   PublicStatisticsData,
   RagResponseData,
   StaffDashboardData,
+  StaffMember,
 } from "./types";
 
 // ── Public ─────────────────────────────────────────────────────────────────
@@ -149,6 +151,11 @@ export const staffApi = {
   assign: (id: string, staffId: string) =>
     api.patch<Complaint>(`/api/complaints/${id}/assign`, {
       assignedToId: staffId,
+    }),
+
+  getMembers: () =>
+    api.get<StaffMember[]>("/api/dashboard/staff/members", {
+      cache: "no-store",
     }),
 };
 

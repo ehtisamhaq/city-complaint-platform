@@ -10,7 +10,9 @@ import {
   IconInbox,
   IconMapPin,
   IconSearch,
+  IconShield,
   IconSparkles,
+  IconTool,
   IconUserPlus,
 } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -47,6 +49,13 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -63,6 +72,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   type Complaint,
   type StaffDashboardData,
+  type StaffMember,
   staffApi,
   type User,
 } from "@/lib/api";
@@ -121,6 +131,7 @@ export default function StaffDashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [data, setData] = useState<StaffDashboardData | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -138,22 +149,24 @@ export default function StaffDashboardPage() {
   const [aiReply, setAiReply] = useState<string | null>(null);
 
   const [assignTarget, setAssignTarget] = useState<Complaint | null>(null);
-  const [assigneeEmail, setAssigneeEmail] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
   const [assigning, setAssigning] = useState(false);
 
   const [auditTarget, setAuditTarget] = useState<Complaint | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [dashboardRes, listRes] = await Promise.all([
+      const [dashboardRes, listRes, membersRes] = await Promise.all([
         staffApi.getDashboard(),
         staffApi.getAllComplaints({
           status: status || undefined,
           severity: severity || undefined,
         }),
+        staffApi.getMembers(),
       ]);
       setData(dashboardRes.data);
       setComplaints(listRes.data?.content ?? []);
+      setStaffMembers(membersRes.data ?? []);
       setLoadError(null);
     } catch (error) {
       setLoadError(
@@ -180,10 +193,21 @@ export default function StaffDashboardPage() {
     load();
   }, [load]);
 
+  const isAdmin = user?.role === "ADMIN";
+  const isTechnician = user?.role === "TECHNICIAN";
+
+  // Technicians only see their own assigned complaints
   const visible = useMemo(() => {
+    let list = complaints;
+
+    // Technicians: filter to only complaints assigned to them
+    if (isTechnician && user) {
+      list = list.filter((c) => c.assignedTo?.email === user.email);
+    }
+
     const term = search.trim().toLowerCase();
-    if (!term) return complaints;
-    return complaints.filter((item) =>
+    if (!term) return list;
+    return list.filter((item) =>
       [
         item.title,
         item.locationName,
@@ -192,7 +216,7 @@ export default function StaffDashboardPage() {
         item.assignedTo?.fullName,
       ].some((field) => field?.toLowerCase().includes(term) ?? false),
     );
-  }, [complaints, search]);
+  }, [complaints, search, isTechnician, user]);
 
   const openStatusDialog = (complaint: Complaint) => {
     setStatusTarget(complaint);
@@ -231,14 +255,14 @@ export default function StaffDashboardPage() {
   };
 
   const saveAssignment = async () => {
-    if (!assignTarget || !assigneeEmail.trim()) return;
+    if (!assignTarget || !assigneeId.trim()) return;
     setAssigning(true);
     setActionError(null);
 
     try {
-      await staffApi.assign(assignTarget.id, assigneeEmail.trim());
+      await staffApi.assign(assignTarget.id, assigneeId.trim());
       setAssignTarget(null);
-      setAssigneeEmail("");
+      setAssigneeId("");
       await load();
     } catch (error) {
       setActionError(
@@ -252,12 +276,21 @@ export default function StaffDashboardPage() {
   };
 
   const stats = data?.stats;
-  const headline = [
-    { label: "Assigned to you", value: stats?.totalAssigned },
-    { label: "Needs review", value: stats?.pending },
-    { label: "In progress", value: stats?.inProgress },
-    { label: "Resolved", value: stats?.resolved },
-  ];
+
+  // Admin sees all-queue stats; technician sees their personal stats
+  const headline = isAdmin
+    ? [
+        { label: "Total cases", value: complaints.length },
+        { label: "Needs review", value: stats?.pending },
+        { label: "In progress", value: stats?.inProgress },
+        { label: "Resolved", value: stats?.resolved },
+      ]
+    : [
+        { label: "Assigned to you", value: stats?.totalAssigned },
+        { label: "Needs review", value: stats?.pending },
+        { label: "In progress", value: stats?.inProgress },
+        { label: "Resolved", value: stats?.resolved },
+      ];
 
   const activeFilterCount =
     (status ? 1 : 0) + (severity ? 1 : 0) + (search ? 1 : 0);
@@ -270,19 +303,35 @@ export default function StaffDashboardPage() {
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <Badge variant="outline" className="mb-3 gap-1.5">
-              <span className="size-1.5 animate-pulse rounded-full bg-success" />
-              Operations
-            </Badge>
+            <div className="mb-3 flex items-center gap-2">
+              <Badge variant="outline" className="gap-1.5">
+                <span className="size-1.5 animate-pulse rounded-full bg-success" />
+                Operations
+              </Badge>
+              {/* Role badge */}
+              {isAdmin ? (
+                <Badge className="gap-1.5 bg-amber-500/10 text-amber-600 border-amber-500/30 hover:bg-amber-500/20">
+                  <IconShield className="size-3" />
+                  Admin
+                </Badge>
+              ) : isTechnician ? (
+                <Badge className="gap-1.5 bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20">
+                  <IconTool className="size-3" />
+                  Technician
+                </Badge>
+              ) : null}
+            </div>
             <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-              Case queue
+              {isAdmin ? "Operations centre" : "My case queue"}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {user?.fullName
                 ? `Signed in as ${user.fullName}${
                     user.departmentName ? ` · ${user.departmentName}` : ""
                   }`
-                : "Triage, assign and resolve incoming service requests."}
+                : isAdmin
+                  ? "Full access — assign, triage and resolve all city service requests."
+                  : "Your assigned cases. Update status and keep residents informed."}
             </p>
           </div>
 
@@ -318,6 +367,17 @@ export default function StaffDashboardPage() {
               >
                 Sign in again
               </button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {/* Role-access info banner for technicians */}
+        {isTechnician ? (
+          <Alert className="mb-4 border-blue-500/20 bg-blue-500/5">
+            <IconTool className="size-4 text-blue-500" />
+            <AlertTitle className="text-blue-700 dark:text-blue-400">Technician view</AlertTitle>
+            <AlertDescription className="text-blue-600 dark:text-blue-300">
+              You can see and update the status of cases assigned to you. Contact an admin to reassign cases.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -361,18 +421,21 @@ export default function StaffDashboardPage() {
                 className="pl-9"
               />
             </div>
-            <NativeSelect
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              aria-label="Filter by status"
-              className="w-full lg:w-44"
-            >
-              {STATUSES.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+            {/* Status filter — admins see all, technicians see only active-relevant */}
+            {isAdmin ? (
+              <NativeSelect
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                aria-label="Filter by status"
+                className="w-full lg:w-44"
+              >
+                {STATUSES.map((option) => (
+                  <NativeSelectOption key={option.value} value={option.value}>
+                    {option.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            ) : null}
             <NativeSelect
               value={severity}
               onChange={(event) => setSeverity(event.target.value)}
@@ -391,7 +454,7 @@ export default function StaffDashboardPage() {
         {/* Queue */}
         <Card>
           <CardHeader>
-            <CardTitle>All cases</CardTitle>
+            <CardTitle>{isAdmin ? "All cases" : "My assigned cases"}</CardTitle>
             <CardDescription>
               {loading
                 ? "Loading…"
@@ -415,9 +478,11 @@ export default function StaffDashboardPage() {
                   </EmptyMedia>
                   <EmptyTitle>No cases to show</EmptyTitle>
                   <EmptyDescription>
-                    {complaints.length === 0
-                      ? "The queue is empty."
-                      : "Adjust or clear the filters to see more."}
+                    {isTechnician && complaints.length > 0
+                      ? "No cases are assigned to you yet."
+                      : complaints.length === 0
+                        ? "The queue is empty."
+                        : "Adjust or clear the filters to see more."}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -477,20 +542,23 @@ export default function StaffDashboardPage() {
                               >
                                 Update
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => {
-                                  setAssignTarget(complaint);
-                                  setAssigneeEmail(
-                                    complaint.assignedTo?.email ?? "",
-                                  );
-                                  setActionError(null);
-                                }}
-                                aria-label={`Assign ${complaint.title}`}
-                              >
-                                <IconUserPlus className="size-4" />
-                              </Button>
+                              {/* Assign button — admin only */}
+                              {isAdmin ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => {
+                                    setAssignTarget(complaint);
+                                    setAssigneeId(
+                                      complaint.assignedTo?.id ?? "",
+                                    );
+                                    setActionError(null);
+                                  }}
+                                  aria-label={`Assign ${complaint.title}`}
+                                >
+                                  <IconUserPlus className="size-4" />
+                                </Button>
+                              ) : null}
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
@@ -541,21 +609,21 @@ export default function StaffDashboardPage() {
                             Update status
                             <IconArrowRight className="size-3.5" />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setAssignTarget(complaint);
-                              setAssigneeEmail(
-                                complaint.assignedTo?.email ?? "",
-                              );
-                              setActionError(null);
-                            }}
-                            className="gap-1.5"
-                          >
-                            <IconUserPlus className="size-3.5" />
-                            Assign
-                          </Button>
+                          {isAdmin ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setAssignTarget(complaint);
+                                setAssigneeId(complaint.assignedTo?.id ?? "");
+                                setActionError(null);
+                              }}
+                              className="gap-1.5"
+                            >
+                              <IconUserPlus className="size-3.5" />
+                              Assign
+                            </Button>
+                          ) : null}
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -688,7 +756,7 @@ export default function StaffDashboardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Assignment */}
+      {/* Assignment — admin only */}
       <Dialog
         open={Boolean(assignTarget)}
         onOpenChange={(open) => !open && setAssignTarget(null)}
@@ -697,7 +765,7 @@ export default function StaffDashboardPage() {
           <DialogHeader>
             <DialogTitle>Assign this case</DialogTitle>
             <DialogDescription>
-              Look up a staff member by their city email address.
+              Select a staff member to assign this case to.
             </DialogDescription>
           </DialogHeader>
 
@@ -711,14 +779,34 @@ export default function StaffDashboardPage() {
             ) : null}
 
             <Field>
-              <FieldLabel htmlFor="assignee">Staff email</FieldLabel>
-              <Input
-                id="assignee"
-                type="email"
-                value={assigneeEmail}
-                onChange={(event) => setAssigneeEmail(event.target.value)}
-                placeholder="name@city.gov"
-              />
+              <FieldLabel>Assign to</FieldLabel>
+              <Select
+                value={assigneeId}
+                onValueChange={(val) => setAssigneeId(val ?? "")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a staff member…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffMembers.length === 0 ? (
+                    <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                      No staff members found
+                    </div>
+                  ) : (
+                    staffMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <span className="font-medium">{member.fullName}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {member.role === "ADMIN" ? "Admin" : "Technician"}
+                          {member.departmentName
+                            ? ` · ${member.departmentName}`
+                            : ""}
+                        </span>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 
@@ -732,7 +820,7 @@ export default function StaffDashboardPage() {
             </Button>
             <Button
               onClick={saveAssignment}
-              disabled={assigning || !assigneeEmail.trim()}
+              disabled={assigning || !assigneeId.trim()}
               className="gap-2"
             >
               {assigning ? <Spinner /> : <IconUserPlus className="size-4" />}

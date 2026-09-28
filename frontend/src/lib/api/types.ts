@@ -78,6 +78,14 @@ export interface StaffDashboardData {
   assignedComplaints: Complaint[];
 }
 
+export interface StaffMember {
+  id: string;
+  fullName: string;
+  email: string;
+  role: "ADMIN" | "TECHNICIAN";
+  departmentName?: string;
+}
+
 export interface PublicStatisticsData {
   stats: {
     totalComplaints: number;
