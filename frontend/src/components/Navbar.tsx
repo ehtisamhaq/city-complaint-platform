@@ -106,15 +106,30 @@ function useTheme() {
   return { dark, toggle };
 }
 
-export default function Navbar() {
+interface NavbarProps {
+  /**
+   * Supplied by the two dashboards, which have already resolved the session
+   * server-side, so the nav renders signed-in on the first paint.
+   *
+   * The root layout deliberately does not read cookies to pass this: that would
+   * opt every route, including the static home page, out of static rendering.
+   * On a public route the navbar falls back to reading the cookie after
+   * hydration, exactly as it did before.
+   */
+  initialUser?: User | null;
+}
+
+export default function Navbar({ initialUser }: NavbarProps) {
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(initialUser ?? null);
   const [ragOpen, setRagOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const { dark, toggle } = useTheme();
 
   useEffect(() => {
+    if (initialUser) return;
     setUser(getClientUser());
-  }, []);
+  }, [initialUser]);
 
   const isStaff = user?.role === "ADMIN" || user?.role === "TECHNICIAN";
   const navItems = allNavItems.filter((item) => {
@@ -269,7 +284,7 @@ export default function Navbar() {
                         My Requests
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem render={<Link href="/report" />}>
+                    <DropdownMenuItem onClick={() => setReportOpen(true)}>
                       <IconSparkles className="size-4 text-amber-500 dark:text-amber-400" />
                       Report Issue
                     </DropdownMenuItem>
@@ -352,6 +367,15 @@ export default function Navbar() {
                   <Separator className="my-3" />
                   <Button
                     variant="outline"
+                    onClick={() => setReportOpen(true)}
+                    className="w-full justify-start gap-3"
+                  >
+                    <IconPlus className="size-4 text-amber-500 dark:text-amber-400" />
+                    Report an Issue
+                  </Button>
+                  <Separator className="my-3" />
+                  <Button
+                    variant="outline"
                     onClick={() => setRagOpen(true)}
                     className="w-full justify-start gap-3"
                   >
@@ -393,6 +417,7 @@ export default function Navbar() {
       </header>
 
       <RagAssistantModal isOpen={ragOpen} onClose={() => setRagOpen(false)} />
+      <ReportModal isOpen={reportOpen} onClose={() => setReportOpen(false)} />
     </>
   );
 }
