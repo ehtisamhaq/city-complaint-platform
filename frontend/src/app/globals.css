@@ -4,86 +4,86 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Theme tokens. Every colour in the app resolves through these variables, so
- * retheming means editing this block only — no component changes.
+ * Nagar Civic Design System Tokens
+ * Deep Navy (#0B1120), Slate/Navy Card (#111827), Brand Amber (#F59E0B), Emerald (#10B981)
  */
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
-  --background: #ffffff;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #1d4ed8;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f4f6f8;
-  --muted-foreground: #5b6b82;
-  --accent: #eff4ff;
-  --accent-foreground: #1e40af;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --success: #047857;
-  --warning: #b45309;
-  --border: #e3e8ef;
-  --input: #d8dfe8;
-  --ring: #2563eb;
+  --background: #0B1120;
+  --foreground: #F3F4F6;
+  --card: #111827;
+  --card-foreground: #F3F4F6;
+  --popover: #111827;
+  --popover-foreground: #F3F4F6;
+  --primary: #F59E0B;
+  --primary-foreground: #0B1120;
+  --secondary: #1E293B;
+  --secondary-foreground: #F3F4F6;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --accent: #1E293B;
+  --accent-foreground: #FBBF24;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --border: #27354A;
+  --input: #1E293B;
+  --ring: #F59E0B;
 
-  --chart-1: #2563eb;
-  --chart-2: #0d9488;
-  --chart-3: #d97706;
-  --chart-4: #7c3aed;
-  --chart-5: #db2777;
-  --chart-6: #0891b2;
+  --chart-1: #F59E0B;
+  --chart-2: #10B981;
+  --chart-3: #38BDF8;
+  --chart-4: #A78BFA;
+  --chart-5: #F472B6;
+  --chart-6: #FB923C;
 
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-accent: #eff4ff;
-  --sidebar-accent-foreground: #1e40af;
-  --sidebar-border: #e3e8ef;
-  --sidebar-ring: #2563eb;
+  --sidebar: #0B1120;
+  --sidebar-foreground: #F3F4F6;
+  --sidebar-accent: #1E293B;
+  --sidebar-accent-foreground: #FBBF24;
+  --sidebar-border: #27354A;
+  --sidebar-ring: #F59E0B;
 }
 
 .dark {
-  --background: #0b1220;
-  --foreground: #e8eef7;
-  --card: #111a2b;
-  --card-foreground: #e8eef7;
-  --popover: #111a2b;
-  --popover-foreground: #e8eef7;
-  --primary: #60a5fa;
-  --primary-foreground: #06101f;
-  --secondary: #1b2637;
-  --secondary-foreground: #e8eef7;
-  --muted: #16202f;
-  --muted-foreground: #93a3b8;
-  --accent: #17233a;
-  --accent-foreground: #bfdbfe;
-  --destructive: #f87171;
-  --destructive-foreground: #1a0505;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --border: #24314a;
-  --input: #2c3a54;
-  --ring: #3b82f6;
+  --background: #070B14;
+  --foreground: #F3F4F6;
+  --card: #0D1527;
+  --card-foreground: #F3F4F6;
+  --popover: #0D1527;
+  --popover-foreground: #F3F4F6;
+  --primary: #F59E0B;
+  --primary-foreground: #070B14;
+  --secondary: #131E33;
+  --secondary-foreground: #F3F4F6;
+  --muted: #131E33;
+  --muted-foreground: #94A3B8;
+  --accent: #131E33;
+  --accent-foreground: #FBBF24;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --border: #1E2D44;
+  --input: #1E2D44;
+  --ring: #F59E0B;
 
-  --chart-1: #60a5fa;
-  --chart-2: #2dd4bf;
-  --chart-3: #fbbf24;
-  --chart-4: #a78bfa;
-  --chart-5: #f472b6;
-  --chart-6: #22d3ee;
+  --chart-1: #F59E0B;
+  --chart-2: #10B981;
+  --chart-3: #38BDF8;
+  --chart-4: #A78BFA;
+  --chart-5: #F472B6;
+  --chart-6: #FB923C;
 
-  --sidebar: #0e1727;
-  --sidebar-foreground: #e8eef7;
-  --sidebar-accent: #17233a;
-  --sidebar-accent-foreground: #bfdbfe;
-  --sidebar-border: #24314a;
-  --sidebar-ring: #3b82f6;
+  --sidebar: #070B14;
+  --sidebar-foreground: #F3F4F6;
+  --sidebar-accent: #131E33;
+  --sidebar-accent-foreground: #FBBF24;
+  --sidebar-border: #1E2D44;
+  --sidebar-ring: #F59E0B;
 }
 
 @theme inline {
@@ -108,6 +108,14 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-brand-navy: #0B1120;
+  --color-brand-navy-card: #111827;
+  --color-brand-navy-input: #0D1527;
+  --color-brand-slate: #1E293B;
+  --color-brand-border: #27354A;
+  --color-brand-amber: #F59E0B;
+  --color-brand-amber-hover: #D97706;
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -136,12 +144,15 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    color-scheme: dark;
   }
 
   body {
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    background-image: radial-gradient(rgba(245, 158, 11, 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
   }
 
   h1,
@@ -153,6 +164,19 @@
     font-family:
       var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui,
       sans-serif;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
   }
+}
+
+.bg-grid-pattern {
+  background-image: radial-gradient(rgba(245, 158, 11, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

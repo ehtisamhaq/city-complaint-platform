@@ -7,30 +7,30 @@ import { cn } from "@/lib/utils";
 type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 type Status = "PENDING" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
-/** Severity is a severity scale, so it maps onto the theme's signal tokens. */
+/** Severity is a severity scale, styled with Nagar Civic high-contrast signals. */
 const severityStyles: Record<
   Severity,
   { dot: string; chip: string; label: string }
 > = {
   LOW: {
-    dot: "bg-success",
-    chip: "border-success/30 bg-success/10 text-success",
-    label: "Low",
+    dot: "bg-emerald-400",
+    chip: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    label: "Low Priority",
   },
   MEDIUM: {
-    dot: "bg-chart-1",
-    chip: "border-chart-1/30 bg-chart-1/10 text-chart-1",
-    label: "Medium",
+    dot: "bg-sky-400",
+    chip: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+    label: "Medium Priority",
   },
   HIGH: {
-    dot: "bg-warning",
-    chip: "border-warning/30 bg-warning/10 text-warning",
-    label: "High",
+    dot: "bg-amber-400",
+    chip: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    label: "High Priority",
   },
   CRITICAL: {
-    dot: "bg-destructive",
-    chip: "border-destructive/30 bg-destructive/10 text-destructive",
-    label: "Critical",
+    dot: "bg-red-400",
+    chip: "border-red-500/30 bg-red-500/10 text-red-400",
+    label: "Critical Alert",
   },
 };
 
@@ -46,13 +46,13 @@ export function SeverityBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1.5 font-medium", style.chip, className)}
+      className={cn("gap-1.5 font-medium tracking-wide text-xs", style.chip, className)}
     >
       <span
         className={cn(
-          "size-1.5 rounded-full",
+          "size-1.5 rounded-full shrink-0",
           style.dot,
-          severity === "CRITICAL" && "animate-pulse",
+          (severity === "CRITICAL" || severity === "HIGH") && "animate-pulse",
         )}
       />
       {style.label}
@@ -65,29 +65,29 @@ const statusStyles: Record<
   { chip: string; label: string; dot: string }
 > = {
   PENDING: {
-    chip: "border-muted-foreground/25 bg-muted text-muted-foreground",
-    label: "Needs review",
-    dot: "bg-muted-foreground",
+    chip: "border-slate-700 bg-slate-800/80 text-gray-300",
+    label: "Needs Review",
+    dot: "bg-gray-400",
   },
   ASSIGNED: {
-    chip: "border-accent-foreground/25 bg-accent text-accent-foreground",
-    label: "Assigned",
-    dot: "bg-accent-foreground",
+    chip: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+    label: "Inspector Assigned",
+    dot: "bg-sky-400",
   },
   IN_PROGRESS: {
-    chip: "border-primary/25 bg-primary/10 text-primary",
-    label: "In progress",
-    dot: "bg-primary",
+    chip: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    label: "Crew Dispatched",
+    dot: "bg-amber-400",
   },
   RESOLVED: {
-    chip: "border-success/30 bg-success/10 text-success",
-    label: "Resolved",
-    dot: "bg-success",
+    chip: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    label: "Fixed & Verified",
+    dot: "bg-emerald-400",
   },
   CLOSED: {
-    chip: "border-border bg-muted text-muted-foreground",
-    label: "Closed",
-    dot: "bg-muted-foreground",
+    chip: "border-slate-800 bg-slate-900 text-slate-400",
+    label: "Closed Dossier",
+    dot: "bg-slate-500",
   },
 };
 
@@ -103,9 +103,9 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("font-medium", style.chip, className)}
+      className={cn("gap-1.5 font-medium tracking-wide text-xs", style.chip, className)}
     >
-      <span className={cn("size-1.5 rounded-full", style.dot)} />
+      <span className={cn("size-1.5 rounded-full shrink-0", style.dot)} />
       {style.label}
     </Badge>
   );
@@ -113,12 +113,12 @@ export function StatusBadge({
 
 /** Shared category vocabulary, so labels stay consistent across screens. */
 export const categoryLabels: Record<string, string> = {
-  ROADS: "Roads & infrastructure",
-  WATER: "Water & sanitation",
-  LIGHTING: "Lighting & power",
-  WASTE: "Sanitation & waste",
-  PARKS: "Parks & trees",
-  TRAFFIC: "Traffic & signals",
+  ROADS: "Roads & Infrastructure",
+  WATER: "Water & Sanitation",
+  LIGHTING: "Lighting & Power",
+  WASTE: "Sanitation & Waste",
+  PARKS: "Parks & Greenery",
+  TRAFFIC: "Traffic & Signals",
 };
 
 export const categoryShortLabels: Record<string, string> = {
@@ -131,7 +131,7 @@ export const categoryShortLabels: Record<string, string> = {
 };
 
 export function categoryLabel(category?: string | null): string {
-  if (!category) return "Uncategorised";
+  if (!category) return "General Civic";
   return categoryLabels[category] ?? category;
 }
 
@@ -143,7 +143,7 @@ export function CategoryBadge({
   return (
     <Badge
       variant="secondary"
-      className={cn("font-normal", className)}
+      className={cn("font-medium bg-slate-800/80 text-gray-200 border border-slate-700/60", className)}
       {...props}
     >
       {categoryLabel(category)}
