@@ -110,6 +110,15 @@ public class Complaint {
 
     // ─── Metadata ─────────────────────────────────────────────────────────────
 
+    /**
+     * How many residents have backed this report ("Endorse this fix").
+     * Incremented by a public, unauthenticated endpoint, so it is a plain
+     * counter rather than a relation.
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private int endorseCount = 0;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

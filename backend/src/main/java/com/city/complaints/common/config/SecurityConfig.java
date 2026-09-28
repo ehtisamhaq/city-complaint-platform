@@ -81,6 +81,10 @@ public class SecurityConfig {
                 // Public complaint reading (landing page map & recent complaints feed)
                 .requestMatchers(HttpMethod.GET, "/complaints", "/complaints/**").permitAll()
 
+                // "Endorse this fix" from the public board. Anonymous on purpose,
+                // and matched before the catch-all below.
+                .requestMatchers(HttpMethod.POST, "/complaints/*/endorse").permitAll()
+
                 // Dashboard and feedback
                 .requestMatchers("/dashboard/citizen").hasRole("CITIZEN")
                 .requestMatchers("/dashboard/staff").hasRole("STAFF")

@@ -126,4 +126,22 @@ public class ComplaintController {
 
         return ResponseEntity.ok(ApiResponse.ok("Complaint assigned successfully", response));
     }
+
+    // ─── Endorsements ─────────────────────────────────────────────────────────
+
+    /**
+     * POST /complaints/{id}/endorse — public "Endorse this fix".
+     *
+     * <p>Anonymous by design: the public board is where endorsements come from,
+     * and requiring an account would defeat the purpose. Returns the new total
+     * so the client can settle the number without refetching the list.
+     */
+    @PostMapping("/{id}/endorse")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> endorse(
+            @PathVariable String id) {
+
+        int total = complaintService.endorse(id);
+        return ResponseEntity.ok(
+                ApiResponse.ok("Endorsement recorded", Map.of("endorseCount", total)));
+    }
 }
