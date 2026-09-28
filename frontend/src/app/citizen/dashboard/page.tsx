@@ -4,10 +4,13 @@ import {
   IconArrowRight,
   IconCircleCheck,
   IconClock,
+  IconExternalLink,
+  IconHistory,
   IconInbox,
   IconMapPin,
   IconPlus,
   IconSparkles,
+  IconTimeline,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,7 +18,8 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { categoryLabel, SeverityBadge, StatusBadge } from "@/components/Badges";
 import Navbar from "@/components/Navbar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -30,9 +34,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ReportModal from "@/components/ReportModal";
 import { type CitizenDashboardData, citizenApi, type User } from "@/lib/api";
+
 import { getClientUser } from "@/lib/auth";
 
 const FILTERS = [
@@ -56,6 +63,17 @@ function formatDate(value: string) {
     day: "numeric",
     month: "short",
     year: "numeric",
+  }).format(date);
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
 }
 
@@ -95,6 +113,7 @@ function CitizenDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
+  const [reportOpen, setReportOpen] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -154,6 +173,15 @@ function CitizenDashboard() {
     [complaints],
   );
 
+  // Resolved / history complaints
+  const historyComplaints = useMemo(
+    () =>
+      complaints.filter(
+        (c) => c.status === "RESOLVED" || c.status === "CLOSED",
+      ),
+    [complaints],
+  );
+
   const firstName = user?.fullName?.split(" ")[0] || "there";
 
   const headline = [
@@ -197,13 +225,14 @@ function CitizenDashboard() {
               Everything you have reported, and where each one stands.
             </p>
           </div>
-          <Link
-            href="/report"
-            className={buttonVariants({ size: "lg", className: "gap-2" })}
+          <Button
+            size="lg"
+            onClick={() => setReportOpen(true)}
+            className="gap-2 bg-amber-500 text-black hover:bg-amber-400"
           >
             <IconPlus className="size-4" />
             Report an issue
-          </Link>
+          </Button>
         </div>
 
         {/* Stats */}
@@ -227,7 +256,7 @@ function CitizenDashboard() {
         </section>
 
         {/* Requests */}
-        <Card>
+        <Card className="mb-6">
           <CardHeader className="gap-4">
             <div>
               <CardTitle>Your requests</CardTitle>
@@ -338,6 +367,153 @@ function CitizenDashboard() {
                   </li>
                 ))}
               </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Complaint History / Resolved Timeline */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <IconHistory className="size-5 text-muted-foreground" />
+              <div>
+                <CardTitle>Resolution history</CardTitle>
+                <CardDescription>
+                  {loading
+                    ? "Loading history…"
+                    : historyComplaints.length === 0
+                      ? "No resolved complaints yet"
+                      : `${historyComplaints.length} complaint${historyComplaints.length === 1 ? "" : "s"} resolved or closed`}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-4">
+                {[0, 1].map((key) => (
+                  <Skeleton key={key} className="h-20 w-full" />
+                ))}
+              </div>
+            ) : historyComplaints.length === 0 ? (
+              <Empty className="py-10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <IconTimeline />
+                  </EmptyMedia>
+                  <EmptyTitle>No history yet</EmptyTitle>
+                  <EmptyDescription>
+                    Resolved and closed complaints will appear here with their
+                    full timeline.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <ol className="relative border-l border-border pl-6 space-y-6">
+                {historyComplaints.map((complaint, idx) => (
+                  <li key={complaint.id} className="relative">
+                    {/* Timeline dot */}
+                    <span
+                      className={`absolute -left-[1.6rem] top-1 flex size-4 items-center justify-center rounded-full border-2 ${
+                        complaint.status === "CLOSED"
+                          ? "border-muted-foreground bg-muted"
+                          : "border-success bg-success/10"
+                      }`}
+                    >
+                      <IconCircleCheck
+                        className={`size-2.5 ${
+                          complaint.status === "CLOSED"
+                            ? "text-muted-foreground"
+                            : "text-success"
+                        }`}
+                      />
+                    </span>
+
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge status={complaint.status} />
+                        <SeverityBadge severity={complaint.severity} />
+                        <span className="text-xs text-muted-foreground tabular-nums flex items-center gap-1">
+                          <IconClock className="size-3" />
+                          {complaint.resolvedAt
+                            ? formatDateTime(complaint.resolvedAt)
+                            : formatDate(complaint.updatedAt)}
+                        </span>
+                      </div>
+
+                      <p className="text-sm font-medium">{complaint.title}</p>
+
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <IconMapPin className="size-3 shrink-0" />
+                        {complaint.locationName || "No location"}
+                        <span className="mx-1">·</span>
+                        {categoryLabel(complaint.category)}
+                      </p>
+
+                      {complaint.resolutionNotes ? (
+                        <>
+                          <Separator className="my-2" />
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                              Resolution:{" "}
+                            </span>
+                            {complaint.resolutionNotes}
+                          </p>
+                        </>
+                      ) : null}
+
+                      {/* Status timeline entries */}
+                      {complaint.statusHistory &&
+                      complaint.statusHistory.length > 0 ? (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                            <IconTimeline className="size-3" />
+                            View {complaint.statusHistory.length} status update
+                            {complaint.statusHistory.length === 1 ? "" : "s"}
+                          </summary>
+                          <ol className="mt-2 space-y-2 border-l border-border pl-4">
+                            {[...complaint.statusHistory]
+                              .reverse()
+                              .map((entry, i) => (
+                                <li
+                                  key={i}
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  <span className="font-medium text-foreground">
+                                    {entry.status
+                                      .replace(/_/g, " ")
+                                      .toLowerCase()}
+                                  </span>{" "}
+                                  · {formatDateTime(entry.createdAt)}
+                                  {entry.note ? (
+                                    <p className="mt-0.5 text-muted-foreground">
+                                      {entry.note}
+                                    </p>
+                                  ) : null}
+                                </li>
+                              ))}
+                          </ol>
+                        </details>
+                      ) : null}
+                    </div>
+
+                    {idx < historyComplaints.length - 1 ? null : null}
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            {/* Link to full registry */}
+            {!loading && (
+              <div className="mt-6 flex justify-end">
+                <Link
+                  href="/complaints"
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <IconExternalLink className="size-4" />
+                  View all city complaints
+                </Link>
+              </div>
             )}
           </CardContent>
         </Card>
