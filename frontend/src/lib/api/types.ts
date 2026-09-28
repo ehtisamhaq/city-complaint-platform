@@ -49,7 +49,10 @@ export interface Complaint {
   citizen?: { id: string; fullName: string; email: string };
   assignedTo?: { id: string; fullName: string; email: string };
   departmentName?: string;
+  /** Real count of "Endorse this fix" clicks, maintained by the backend. */
+  endorseCount?: number;
   statusHistory?: Array<{
+    id: string;
     status: string;
     note: string;
     changedBy: string;

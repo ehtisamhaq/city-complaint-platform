@@ -98,21 +98,6 @@ export const citizenApi = {
 
   getComplaint: (id: string) =>
     api.get<Complaint>(`/api/complaints/${id}`, { cache: "no-store" }),
-
-  createComplaint: (body: {
-    title: string;
-    description: string;
-    category: string;
-    locationName?: string;
-    latitude?: number | null;
-    longitude?: number | null;
-    photoUrl?: string;
-  }) => api.post<Complaint>("/api/complaints", body),
-
-  submitFeedback: (
-    complaintId: string,
-    body: { rating: number; comment?: string },
-  ) => api.post(`/api/feedback/${complaintId}`, body),
 };
 
 // ── Staff ──────────────────────────────────────────────────────────────────
@@ -139,20 +124,6 @@ export const staffApi = {
     });
   },
 
-  updateStatus: (
-    id: string,
-    body: { status: string; note?: string; includeAiReply?: boolean },
-  ) =>
-    api.patch<{ complaint: Complaint; suggestedReply?: string }>(
-      `/api/complaints/${id}/status`,
-      body,
-    ),
-
-  assign: (id: string, staffId: string) =>
-    api.patch<Complaint>(`/api/complaints/${id}/assign`, {
-      assignedToId: staffId,
-    }),
-
   getMembers: () =>
     api.get<StaffMember[]>("/api/dashboard/staff/members", {
       cache: "no-store",
@@ -172,12 +143,4 @@ export const ragApi = {
         : "/api/rag/articles",
       { cache: "no-store" },
     ),
-
-  createArticle: (body: {
-    title: string;
-    category: string;
-    content: string;
-    tags?: string;
-  }) => api.post<KnowledgeArticleData>("/api/rag/articles", body),
 };
-

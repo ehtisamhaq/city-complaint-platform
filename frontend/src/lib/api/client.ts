@@ -17,11 +17,11 @@ interface ApiClientRequestOptions {
   timeout?: number;
 }
 
+/** Adds the request body fields on top of the shared per-request options. */
 interface ApiClientOptions extends ApiClientRequestOptions {
   method?: RequestMethod;
   body?: unknown;
   isFormData?: boolean;
-  /** Internal flag — prevents infinite refresh loops on a retry */
 }
 
 import type { ApiResponse } from "@/lib/api/types";
@@ -121,7 +121,8 @@ class ApiClient {
       // Failed to parse JSON, data remains null
     }
 
-    // Handle 401 Unauthorized - request() clears the session and re-prompts
+    // 401 → the caller decides how to recover; the dashboards show a
+    // "session expired" notice, and clearAuthCookies() runs on logout.
     if (response.status === 401) {
       const errorMsg = this.extractErrorMessage(data, text);
       throw new ApiError(
@@ -185,21 +186,20 @@ class ApiClient {
         // Forward the entire raw cookie string intact
         const allCookies = cookieStore.toString();
         if (allCookies) {
-          requestHeaders["Cookie"] = allCookies;
+          requestHeaders.Cookie = allCookies;
         }
 
         const token = cookieStore.get("jwt_token")?.value;
         if (token) {
-          requestHeaders["Authorization"] = `Bearer ${token}`;
+          requestHeaders.Authorization = `Bearer ${token}`;
         }
       } catch {
         // cookies() not available (e.g., during build)
       }
     } else {
       const match = document.cookie.match(/(?:^|;\s*)jwt_token=([^;]*)/);
-      if (match && match[1]) {
-        requestHeaders["Authorization"] =
-          `Bearer ${decodeURIComponent(match[1])}`;
+      if (match?.[1]) {
+        requestHeaders.Authorization = `Bearer ${decodeURIComponent(match[1])}`;
       }
     }
 
@@ -327,10 +327,11 @@ class ApiClient {
 // ── Base URL resolution ────────────────────────────────────────────────────
 
 /**
- * Every data route in this app is a client component, so requests are always
- * same-origin and proxied to Spring Boot by the rewrite in next.config.ts.
- * An empty base keeps the URL relative; there is no public app URL to
- * configure and no SSR path to serve.
+ * Shared by the client components and by the server components' sibling data
+ * layer. Browser calls are same-origin and proxied to Spring Boot by the
+ * rewrite in next.config.ts; server components instead call the backend
+ * directly through `lib/server/data.ts` and never construct this client. An
+ * empty base keeps the URL relative; there is no public app URL to configure.
  */
 const getBaseUrl = () => "";
 
