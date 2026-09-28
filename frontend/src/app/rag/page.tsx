@@ -27,6 +27,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { type KnowledgeArticleData, ragApi } from "@/lib/api";
 
+import PublishArticleModal from "@/components/PublishArticleModal";
+import { getClientUser } from "@/lib/auth";
+import { IconPlus } from "@tabler/icons-react";
+
 const CATEGORIES = [
   "Roads & Highways",
   "Water & Sanitation",
@@ -43,6 +47,29 @@ export default function RagPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    setUser(getClientUser());
+  }, []);
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const res = await ragApi.getArticles(category || undefined);
+      setArticles(res.data ?? []);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "The knowledge base is unavailable",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -82,6 +109,8 @@ export default function RagPage() {
     );
   }, [articles, search]);
 
+  const isStaff = user?.role === "ADMIN" || user?.role === "TECHNICIAN";
+
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <Navbar />
@@ -102,14 +131,25 @@ export default function RagPage() {
               not documented here, the assistant will say so rather than guess.
             </p>
           </div>
-          <Button
-            size="lg"
-            onClick={() => setModalOpen(true)}
-            className="gap-2"
-          >
-            <IconSparkles className="size-4" />
-            Ask the assistant
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => setPublishModalOpen(true)}
+              className="gap-2"
+            >
+              <IconPlus className="size-4" />
+              Publish Guidance
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => setModalOpen(true)}
+              className="gap-2"
+            >
+              <IconSparkles className="size-4" />
+              Ask the assistant
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -214,6 +254,13 @@ export default function RagPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
       />
+
+      <PublishArticleModal
+        isOpen={publishModalOpen}
+        onClose={() => setPublishModalOpen(false)}
+        onPublished={reload}
+      />
     </div>
   );
 }
+

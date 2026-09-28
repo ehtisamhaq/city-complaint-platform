@@ -172,4 +172,12 @@ export const ragApi = {
         : "/api/rag/articles",
       { cache: "no-store" },
     ),
+
+  createArticle: (body: {
+    title: string;
+    category: string;
+    content: string;
+    tags?: string;
+  }) => api.post<KnowledgeArticleData>("/api/rag/articles", body),
 };
+
