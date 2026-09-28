@@ -2,6 +2,7 @@
 
 import {
   IconAlertCircle,
+  IconArrowRight,
   IconLock,
   IconMail,
   IconMapPin,
@@ -55,49 +56,54 @@ export default function CitizenSignupPage() {
 
   return (
     <AuthShell
-      icon={<IconUserPlus className="size-6" />}
-      title="Create your account"
-      description="File service requests and follow every update until the fix is done."
+      portalType="citizen"
+      icon={<IconUserPlus className="size-7 text-amber-400" />}
+      title="Create Resident Account"
+      description="Report neighborhood issues, receive SMS/push updates, and confirm completed municipal repairs."
       footer={
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-xs text-gray-400">
           Already registered?{" "}
           <Link
             href="/citizen/login"
-            className="font-medium text-foreground underline underline-offset-4"
+            className="font-semibold text-amber-400 hover:text-amber-300 underline underline-offset-4"
           >
-            Sign in
+            Sign in to your account
           </Link>
         </p>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error ? (
-          <Alert variant="destructive">
-            <IconAlertCircle className="size-4" />
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="bg-red-500/10 border-red-500/30 text-red-200">
+            <IconAlertCircle className="size-4 text-red-400" />
+            <AlertDescription className="text-xs">{error}</AlertDescription>
           </Alert>
         ) : null}
 
         <Field>
-          <FieldLabel htmlFor="fullName">Full name</FieldLabel>
-          <div className="relative">
-            <IconUser className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <FieldLabel htmlFor="fullName" className="text-xs text-gray-300 font-medium">
+            Full name
+          </FieldLabel>
+          <div className="relative mt-1">
+            <IconUser className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-gray-500" />
             <Input
               id="fullName"
               required
               autoComplete="name"
               value={formData.fullName}
               onChange={(event) => update("fullName")(event.target.value)}
-              placeholder="Alex Morgan"
-              className="pl-9"
+              placeholder="Tanvir Ahmed"
+              className="pl-10 bg-[#090D17] border-[#233148] text-white placeholder-gray-500 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
             />
           </div>
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="email">Email</FieldLabel>
-          <div className="relative">
-            <IconMail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <FieldLabel htmlFor="email" className="text-xs text-gray-300 font-medium">
+            Email address
+          </FieldLabel>
+          <div className="relative mt-1">
+            <IconMail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-gray-500" />
             <Input
               id="email"
               type="email"
@@ -105,16 +111,18 @@ export default function CitizenSignupPage() {
               autoComplete="email"
               value={formData.email}
               onChange={(event) => update("email")(event.target.value)}
-              placeholder="you@example.com"
-              className="pl-9"
+              placeholder="tanvir@example.com"
+              className="pl-10 bg-[#090D17] border-[#233148] text-white placeholder-gray-500 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
             />
           </div>
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="password">Password</FieldLabel>
-          <div className="relative">
-            <IconLock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <FieldLabel htmlFor="password" className="text-xs text-gray-300 font-medium">
+            Password
+          </FieldLabel>
+          <div className="relative mt-1">
+            <IconLock className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-gray-500" />
             <Input
               id="password"
               type="password"
@@ -124,57 +132,56 @@ export default function CitizenSignupPage() {
               value={formData.password}
               onChange={(event) => update("password")(event.target.value)}
               placeholder="At least 8 characters"
-              className="pl-9"
+              className="pl-10 bg-[#090D17] border-[#233148] text-white placeholder-gray-500 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
             />
           </div>
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="phone">
-              Phone{" "}
-              <span className="font-normal text-muted-foreground">
-                (optional)
-              </span>
+            <FieldLabel htmlFor="phone" className="text-xs text-gray-300 font-medium">
+              Phone <span className="font-normal text-gray-500">(optional)</span>
             </FieldLabel>
-            <div className="relative">
-              <IconPhone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative mt-1">
+              <IconPhone className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-gray-500" />
               <Input
                 id="phone"
                 type="tel"
                 autoComplete="tel"
                 value={formData.phone}
                 onChange={(event) => update("phone")(event.target.value)}
-                placeholder="+1 555 0100"
-                className="pl-9"
+                placeholder="+880 1700 000000"
+                className="pl-10 bg-[#090D17] border-[#233148] text-white placeholder-gray-500 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
             </div>
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="address">
-              Address{" "}
-              <span className="font-normal text-muted-foreground">
-                (optional)
-              </span>
+            <FieldLabel htmlFor="address" className="text-xs text-gray-300 font-medium">
+              Ward / Area <span className="font-normal text-gray-500">(optional)</span>
             </FieldLabel>
-            <div className="relative">
-              <IconMapPin className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative mt-1">
+              <IconMapPin className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-gray-500" />
               <Input
                 id="address"
                 autoComplete="street-address"
                 value={formData.address}
                 onChange={(event) => update("address")(event.target.value)}
-                placeholder="442 Main Street"
-                className="pl-9"
+                placeholder="Ward 15, Dhanmondi"
+                className="pl-10 bg-[#090D17] border-[#233148] text-white placeholder-gray-500 text-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
             </div>
           </Field>
         </div>
 
-        <Button type="submit" className="w-full gap-2" disabled={loading}>
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-amber-500/20 transition gap-2 mt-2"
+        >
           {loading ? <Spinner /> : null}
-          Create account
+          <span>Create Account</span>
+          <IconArrowRight className="size-4" />
         </Button>
       </form>
     </AuthShell>
