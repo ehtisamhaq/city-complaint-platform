@@ -1,0 +1,9 @@
+databaseChangeLog:
+  # V1 is the baseline of the schema that already existed in the database before
+  # Liquibase was introduced. Because `baseline-on-migrate` is enabled, an
+  # existing database is recorded as being at version 1 without executing this
+  # file; a brand-new database gets the full schema created here.
+  #
+  # Add every future schema change as a new V2, V3, ... file. Never edit V1.
+  - include:
+      file: db/changelog/V1__baseline.sql

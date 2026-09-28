@@ -4,11 +4,15 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: false
-  h2:
+    jpa:
+      hibernate:
+        ddl-auto: create-drop
+      show-sql: false
+    liquibase:
+      # H2 is a throwaway in-memory database built by Hibernate, so there is
+      # nothing to migrate. The changelog targets PostgreSQL.
+      enabled: false
+    h2:
     console:
       enabled: true
       path: /h2-console

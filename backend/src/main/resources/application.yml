@@ -20,9 +20,21 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update              # auto-creates/updates tables; use 'validate' in prod
+      # Liquibase owns the schema (see spring.liquibase below). 'validate' makes
+      # Hibernate check the mapping against the database and fail fast on a
+      # mismatch, instead of silently altering a real database on boot. The dev
+      # and test profiles override this to 'create-drop' for their in-memory H2.
+      ddl-auto: ${DDL_AUTO:validate}
     show-sql: false
     open-in-view: false # avoids lazy-loading anti-pattern warnings
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    # No 'baseline-on-migrate' here on purpose. That property existed on
+    # LiquibaseProperties up to Boot 3.x but was dropped in Boot 4, so setting
+    # it fails startup with a binding error. Adopting Liquibase on a database
+    # that already has the tables is handled by a MARK_RAN precondition on each
+    # changeset in the baseline instead — see db/changelog/V1__baseline.sql.
 
 server:
   port: ${PORT:8080}
