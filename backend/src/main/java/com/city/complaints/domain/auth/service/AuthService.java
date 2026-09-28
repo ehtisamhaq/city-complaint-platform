@@ -88,7 +88,7 @@ public class AuthService {
                 "Bearer",
                 jwtProvider.getExpirationMs() / 1000,
                 new AuthResponse.UserInfo(citizen.getId(), citizen.getEmail(),
-                        citizen.getFullName(), null, null)
+                        citizen.getFullName(), "CITIZEN", null)
         );
     }
 
