@@ -1,6 +1,9 @@
 spring:
   application:
     name: complaint-platform
+  threads:
+    virtual:
+      enabled: true
   config:
     import:
       - "optional:file:.env[.properties]"

@@ -1,5 +1,5 @@
-# Automatically set Java 21 on macOS, or fallback to current JAVA_HOME
-JAVA_HOME := $(shell /usr/libexec/java_home -v 21 2>/dev/null || echo $$JAVA_HOME)
+# Explicitly set Java 21 for Homebrew on macOS
+JAVA_HOME := /opt/homebrew/opt/openjdk@21
 MVNW      := JAVA_HOME=$(JAVA_HOME) ./mvnw
 PORT      := 8080
 
