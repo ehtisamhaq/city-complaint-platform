@@ -3,11 +3,14 @@ package com.city.complaints.domain.dashboard.controller;
 import com.city.complaints.common.model.ApiResponse;
 import com.city.complaints.domain.dashboard.dto.CitizenDashboardResponse;
 import com.city.complaints.domain.dashboard.dto.StaffDashboardResponse;
+import com.city.complaints.domain.dashboard.dto.StaffMemberDto;
 import com.city.complaints.domain.dashboard.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Dashboard endpoints (authenticated).
@@ -37,5 +40,12 @@ public class DashboardController {
 
         return ResponseEntity.ok(ApiResponse.ok("Dashboard data retrieved",
                 dashboardService.getStaffDashboard(authentication.getName())));
+    }
+
+    /** GET /dashboard/staff/members — list all active staff for the assign dropdown. */
+    @GetMapping("/staff/members")
+    public ResponseEntity<ApiResponse<List<StaffMemberDto>>> staffMembers() {
+        return ResponseEntity.ok(ApiResponse.ok("Staff list retrieved",
+                dashboardService.getAllStaffMembers()));
     }
 }

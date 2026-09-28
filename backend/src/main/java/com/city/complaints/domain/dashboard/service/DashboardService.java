@@ -9,6 +9,7 @@ import com.city.complaints.domain.complaint.repository.ComplaintRepository;
 import com.city.complaints.domain.dashboard.dto.CitizenDashboardResponse;
 import com.city.complaints.domain.dashboard.dto.PublicStatisticsResponse;
 import com.city.complaints.domain.dashboard.dto.StaffDashboardResponse;
+import com.city.complaints.domain.dashboard.dto.StaffMemberDto;
 import com.city.complaints.domain.staff.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -117,6 +118,22 @@ public class DashboardService {
                         .toList();
 
         return new PublicStatisticsResponse(platformStats, byCategory, byDept);
+    }
+
+    // ─── Staff member list (for assign dropdown) ──────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<StaffMemberDto> getAllStaffMembers() {
+        return staffRepository.findAll().stream()
+                .filter(s -> Boolean.TRUE.equals(s.getIsActive()))
+                .map(s -> new StaffMemberDto(
+                        s.getId(),
+                        s.getFullName(),
+                        s.getEmail(),
+                        s.getRole().name(),
+                        s.getDepartment() != null ? s.getDepartment().getName() : null
+                ))
+                .toList();
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
