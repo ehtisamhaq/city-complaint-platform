@@ -1,13 +1,17 @@
 package com.city.complaints.domain.complaint.controller;
 
+import com.city.complaints.common.exception.ApiException;
 import com.city.complaints.common.model.ApiResponse;
 import com.city.complaints.domain.complaint.dto.AssignComplaintRequest;
 import com.city.complaints.domain.complaint.dto.ComplaintResponse;
 import com.city.complaints.domain.complaint.dto.CreateComplaintRequest;
 import com.city.complaints.domain.complaint.dto.UpdateStatusRequest;
 import com.city.complaints.domain.complaint.service.ComplaintService;
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -26,9 +31,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/complaints")
 @RequiredArgsConstructor
+@Slf4j
 public class ComplaintController {
 
     private final ComplaintService complaintService;
+    private final Cloudinary cloudinary;
 
     // ─── Create ───────────────────────────────────────────────────────────────
 
@@ -44,6 +51,36 @@ public class ComplaintController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Complaint created successfully", response));
+    }
+
+    /** POST /complaints/upload — upload image to Cloudinary and return secure URL. */
+    @PostMapping("/upload")
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadImage(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+
+        if (file.isEmpty()) {
+            throw new ApiException(400, "File is empty");
+        }
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap("folder", "nagar_civic")
+            );
+
+            String url = (String) uploadResult.get("secure_url");
+            if (url == null) {
+                url = (String) uploadResult.get("url");
+            }
+
+            log.info("Image uploaded to Cloudinary [url={}] [user={}]", url, authentication.getName());
+            return ResponseEntity.ok(ApiResponse.ok("Image uploaded successfully", Map.of("url", url)));
+        } catch (Exception e) {
+            log.error("Cloudinary upload failed", e);
+            throw new ApiException(500, "Failed to upload image: " + e.getMessage());
+        }
     }
 
     // ─── Read ─────────────────────────────────────────────────────────────────

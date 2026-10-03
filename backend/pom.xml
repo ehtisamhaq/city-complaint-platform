@@ -103,6 +103,13 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Cloudinary Java SDK -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http45</artifactId>
+            <version>1.38.0</version>
+        </dependency>
+
         <!-- Spring Boot DevTools -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

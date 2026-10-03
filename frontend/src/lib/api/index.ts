@@ -144,3 +144,13 @@ export const ragApi = {
       { cache: "no-store" },
     ),
 };
+
+// ── Upload ─────────────────────────────────────────────────────────────────
+
+export const uploadApi = {
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.postForm<{ url: string }>("/api/complaints/upload", formData);
+  },
+};

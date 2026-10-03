@@ -8,12 +8,15 @@ import {
   IconDroplet,
   IconInfoCircle,
   IconMapPin,
+  IconPhoto,
   IconRoad,
   IconTrafficLights,
   IconTrash,
   IconTrees,
+  IconX,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -35,7 +38,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { submitComplaint } from "@/lib/actions/complaints";
-import type { User } from "@/lib/api";
+import { type User, uploadApi } from "@/lib/api";
 import { getClientUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -147,6 +150,9 @@ export default function ReportModal({
   const [locationName, setLocationName] = useState("");
   const [latitude, setLatitude] = useState(23.8103);
   const [longitude, setLongitude] = useState(90.4125);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   // Field validation errors
   const [descError, setDescError] = useState<string | null>(null);
@@ -155,6 +161,31 @@ export default function ReportModal({
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleImageChange = (file: File | undefined) => {
+    setImageError(null);
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setImageError("Please choose an image file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setImageError("Images must be 10 MB or smaller.");
+      return;
+    }
+
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImageFile(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+  };
+
+  const removeImage = () => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImageFile(null);
+    setImagePreviewUrl(null);
+    setImageError(null);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -221,6 +252,12 @@ export default function ReportModal({
     setErrorMsg(null);
 
     try {
+      let photoUrl: string | undefined;
+      if (imageFile) {
+        const uploadResponse = await uploadApi.uploadImage(imageFile);
+        photoUrl = uploadResponse.data.url;
+      }
+
       const result = await submitComplaint({
         title: title.trim() || description.trim().slice(0, 80),
         description: description.trim(),
@@ -228,6 +265,7 @@ export default function ReportModal({
         locationName: locationName.trim() || undefined,
         latitude,
         longitude,
+        photoUrl,
       });
 
       if (!result.ok) {
@@ -260,6 +298,7 @@ export default function ReportModal({
     setTitle("");
     setDescription("");
     setLocationName("");
+    removeImage();
     setDescError(null);
     setCategoryError(null);
     setLocationError(null);
@@ -279,9 +318,9 @@ export default function ReportModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl border-white/10 bg-[#0B1120]">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden border-white/10 bg-[#0B1120] p-0 sm:max-h-[90dvh] sm:w-full sm:max-w-2xl">
         {/* Header with Progress Bar */}
-        <DialogHeader className="border-b border-white/10 p-5 bg-[#111827]">
+        <DialogHeader className="shrink-0 border-b border-white/10 bg-[#111827] p-4 sm:p-5">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Badge
@@ -309,7 +348,7 @@ export default function ReportModal({
         </DialogHeader>
 
         {/* Scrollable Form Body */}
-        <ScrollArea className="flex-1 p-5 min-h-[350px]">
+        <div className="-mx-4 no-scrollbar max-h-[70vh] overflow-y-auto py-4 px-8">
           {errorMsg ? (
             <Alert
               variant="destructive"
@@ -442,6 +481,58 @@ export default function ReportModal({
                   className="border-white/10 bg-white/5 text-white placeholder:text-gray-500 focus:border-amber-500/50"
                 />
               </Field>
+
+              <Field>
+                <FieldLabel className="text-sm font-medium text-gray-200">
+                  Add a photo{" "}
+                  <span className="font-normal text-gray-500">(optional)</span>
+                </FieldLabel>
+                {imagePreviewUrl ? (
+                  <div className="relative h-56 overflow-hidden rounded-xl border border-amber-500/30 bg-white/5">
+                    <Image
+                      src={imagePreviewUrl}
+                      alt="Selected report"
+                      fill
+                      sizes="(max-width: 640px) 100vw, 560px"
+                      className="object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black"
+                      aria-label="Remove selected photo"
+                    >
+                      <IconX className="size-4" />
+                    </button>
+                    <p className="truncate px-3 py-2 text-xs text-gray-300">
+                      {imageFile?.name}
+                    </p>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="report-image"
+                    className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-7 text-center transition hover:border-amber-500/50 hover:bg-amber-500/5"
+                  >
+                    <IconPhoto className="size-7 text-amber-400" />
+                    <span className="text-sm font-medium text-gray-200">
+                      Upload a photo of the issue
+                    </span>
+                    <span className="text-[11px] text-gray-500">
+                      JPG, PNG, or other image up to 10 MB
+                    </span>
+                    <input
+                      id="report-image"
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(event) =>
+                        handleImageChange(event.target.files?.[0])
+                      }
+                    />
+                  </label>
+                )}
+                {imageError ? <FieldError>{imageError}</FieldError> : null}
+              </Field>
             </div>
           ) : null}
 
@@ -545,10 +636,10 @@ export default function ReportModal({
               </p>
             </div>
           ) : null}
-        </ScrollArea>
+        </div>
 
         {/* Footer Navigation */}
-        <div className="border-t border-white/10 p-4 bg-[#111827] flex justify-between items-center">
+        <div className="flex shrink-0 items-center justify-between border-t border-white/10 bg-[#111827] p-3 sm:p-4">
           <Button
             type="button"
             variant="outline"

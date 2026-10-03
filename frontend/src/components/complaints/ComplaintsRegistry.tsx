@@ -18,6 +18,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import { categoryLabel, SeverityBadge, StatusBadge } from "@/components/Badges";
 import ReportModal from "@/components/ReportModal";
@@ -773,6 +774,17 @@ export default function ComplaintsRegistry({
                       </p>
 
                       {/* Description Snippet */}
+                      {item.photoUrl && (
+                        <div className="relative mb-4 h-40 w-full overflow-hidden rounded-xl border border-[#27354A]">
+                          <Image
+                            src={item.photoUrl}
+                            alt="Complaint evidence"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 33vw"
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
                       <div className="p-3 bg-[#090D17] rounded-xl border border-[#27354A]/60 text-xs text-gray-300 mb-4 line-clamp-3 leading-relaxed">
                         {item.description}
                       </div>
@@ -937,6 +949,23 @@ export default function ComplaintsRegistry({
                   )}
 
                   {/* Full Description */}
+                  {selectedComplaint.photoUrl && (
+                    <div>
+                      <h4 className="text-xs uppercase font-mono font-semibold text-gray-400 mb-2">
+                        Citizen Photo
+                      </h4>
+                      <div className="relative h-[28rem] w-full overflow-hidden rounded-xl border border-[#233148] bg-[#090D17]">
+                        <Image
+                          src={selectedComplaint.photoUrl}
+                          alt="Photo attached to complaint"
+                          fill
+                          sizes="(max-width: 768px) 100vw, 672px"
+                          className="object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <h4 className="text-xs uppercase font-mono font-semibold text-gray-400 mb-2">
                       Citizen Report Narrative

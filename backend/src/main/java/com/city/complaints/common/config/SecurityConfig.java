@@ -75,6 +75,7 @@ public class SecurityConfig {
 
                 // Authenticated / Role-based complaint endpoints
                 .requestMatchers(HttpMethod.GET, "/complaints/my").authenticated()
+                .requestMatchers(HttpMethod.POST, "/complaints/upload").authenticated()
                 .requestMatchers(HttpMethod.POST, "/complaints").hasRole("CITIZEN")
                 .requestMatchers(HttpMethod.PATCH, "/complaints/**").hasRole("STAFF")
 

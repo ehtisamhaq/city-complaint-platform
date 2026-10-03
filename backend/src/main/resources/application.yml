@@ -8,6 +8,11 @@ spring:
     import:
       - "optional:file:.env[.properties]"
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/complaints_db}
     username: ${DB_USERNAME:postgres}
@@ -71,3 +76,9 @@ mapbox:
 # ─── CORS ────────────────────────────────────────────────────────────────────
 cors:
   allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+# ─── Cloudinary ──────────────────────────────────────────────────────────────
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}

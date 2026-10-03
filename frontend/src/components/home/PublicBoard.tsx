@@ -12,6 +12,7 @@ import {
   IconThumbUp,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 
@@ -668,6 +669,17 @@ export default function PublicBoard({
                             {item.locationName || categoryLabel(item.category)}
                           </span>
                         </p>
+                        {item.photoUrl && (
+                          <div className="relative mb-4 h-40 w-full overflow-hidden rounded-lg border border-[#27354A]">
+                            <Image
+                              src={item.photoUrl}
+                              alt="Complaint evidence"
+                              fill
+                              sizes="(max-width: 768px) 100vw, 33vw"
+                              className="object-cover"
+                            />
+                          </div>
+                        )}
                         <div className="p-3 bg-[#0d1527] rounded-lg border border-[#27354A]/60 text-xs text-gray-300 mb-4 line-clamp-3">
                           <span className="text-gray-400 block mb-1 font-medium">
                             Description:
